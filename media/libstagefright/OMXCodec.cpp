@@ -1821,11 +1821,30 @@ status_t OMXCodec::allocateOutputBuffersFromNativeWindow() {
         return err;
     }
 
+    int color_fmt = HAL_PIXEL_FORMAT_YCbCr_420_SP;
+    switch(def.format.video.eColorFormat) {
+	    case OMX_COLOR_FormatYUV420SemiPlanar:
+		    color_fmt = HAL_PIXEL_FORMAT_YCbCr_420_SP;
+		    break;
+	    case OMX_COLOR_FormatYUV420Planar:
+		    color_fmt = HAL_PIXEL_FORMAT_YCbCr_420_P;
+		    break;
+	    case OMX_COLOR_Format16bitRGB565:
+		    color_fmt = HAL_PIXEL_FORMAT_RGB_565;
+		    break;
+	    case OMX_COLOR_FormatYUV422Planar:
+		    color_fmt = HAL_PIXEL_FORMAT_YCbCr_422_P;
+		    break;
+	    default:
+		    ALOGE("Not supported color format %d by surface!", def.format.video.eColorFormat);
+		    return UNKNOWN_ERROR;
+    }
+
     err = native_window_set_buffers_geometry(
             mNativeWindow.get(),
             def.format.video.nFrameWidth,
             def.format.video.nFrameHeight,
-            def.format.video.eColorFormat);
+            color_fmt);
 
     if (err != 0) {
         ALOGE("native_window_set_buffers_geometry failed: %s (%d)",
@@ -1885,6 +1904,7 @@ status_t OMXCodec::allocateOutputBuffersFromNativeWindow() {
                 strerror(-err), -err);
         return err;
     }
+
     // FIXME: assume that surface is controlled by app (native window
     // returns the number for the case when surface is not controlled by app)
     // FIXME2: This means that minUndeqeueudBufs can be 1 larger than reported
@@ -1900,6 +1920,10 @@ status_t OMXCodec::allocateOutputBuffersFromNativeWindow() {
     CODEC_LOGI("OMX-buffers: min=%u actual=%u undeq=%d+1",
             def.nBufferCountMin, def.nBufferCountActual, minUndequeuedBufs);
 
+    // XXX: Is this the right logic to use?  It's not clear to me what the OMX
+    // buffer counts refer to - how do they account for the renderer holding on
+    // to buffers?
+    minUndequeuedBufs = 0;
     for (OMX_U32 extraBuffers = 2 + 1; /* condition inside loop */; extraBuffers--) {
         OMX_U32 newBufferCount =
             def.nBufferCountMin + minUndequeuedBufs + extraBuffers;
@@ -2011,7 +2035,6 @@ OMXCodec::BufferInfo* OMXCodec::dequeueBufferFromNativeWindow() {
     if (err != 0) {
       CODEC_LOGE("dequeueBuffer failed w/ error 0x%08x", err);
 
-      setState(ERROR);
       return 0;
     }
 
@@ -2381,9 +2404,9 @@ void OMXCodec::on_message(const omx_message &msg) {
                     mTargetTimeUs = -1;
                 }
 
-                mFilledBuffers.push_back(i);
-                mBufferFilled.signal();
-                if (mIsEncoder) {
+		mFilledBuffers.push_back(i);
+		mBufferFilled.signal();
+		if (mIsEncoder) {
                     sched_yield();
                 }
             }
@@ -2932,11 +2955,18 @@ bool OMXCodec::flushPortAsync(OMX_U32 portIndex) {
         // No flush is necessary and this component fails to send a
         // flush-complete event in this case.
 
-        return false;
+	    return false;
     }
 
-    status_t err =
-        mOMX->sendCommand(mNode, OMX_CommandFlush, portIndex);
+    status_t err = UNKNOWN_ERROR;
+    OMX_U32 nCnt = 0;
+    while (err != OK) {
+	    err = mOMX->sendCommand(mNode, OMX_CommandFlush, portIndex);
+	    if (nCnt ++ == 100)
+		    break;
+
+	    usleep(10000);
+    }
     CHECK_EQ(err, (status_t)OK);
 
     return true;
