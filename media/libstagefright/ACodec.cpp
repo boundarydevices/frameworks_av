@@ -540,14 +540,33 @@ status_t ACodec::allocateOutputBuffersFromNativeWindow() {
             mNode, OMX_IndexParamPortDefinition, &def, sizeof(def));
 
     if (err != OK) {
-        return err;
+	    return err;
+    }
+
+    int color_fmt = HAL_PIXEL_FORMAT_YCbCr_420_SP;
+    switch(def.format.video.eColorFormat) {
+	    case OMX_COLOR_FormatYUV420SemiPlanar:
+		    color_fmt = HAL_PIXEL_FORMAT_YCbCr_420_SP;
+		    break;
+	    case OMX_COLOR_FormatYUV420Planar:
+		    color_fmt = HAL_PIXEL_FORMAT_YCbCr_420_P;
+		    break;
+	    case OMX_COLOR_Format16bitRGB565:
+		    color_fmt = HAL_PIXEL_FORMAT_RGB_565;
+		    break;
+	    case OMX_COLOR_FormatYUV422Planar:
+		    color_fmt = HAL_PIXEL_FORMAT_YCbCr_422_P;
+		    break;
+	    default:
+		    ALOGE("Not supported color format %d by surface!", def.format.video.eColorFormat);
+		    return UNKNOWN_ERROR;
     }
 
     err = native_window_set_buffers_geometry(
             mNativeWindow.get(),
             def.format.video.nFrameWidth,
             def.format.video.nFrameHeight,
-            def.format.video.eColorFormat);
+            color_fmt);
 
     if (err != 0) {
         ALOGE("native_window_set_buffers_geometry failed: %s (%d)",
@@ -610,6 +629,7 @@ status_t ACodec::allocateOutputBuffersFromNativeWindow() {
     // XXX: Is this the right logic to use?  It's not clear to me what the OMX
     // buffer counts refer to - how do they account for the renderer holding on
     // to buffers?
+    minUndequeuedBufs = 0;
     if (def.nBufferCountActual < def.nBufferCountMin + minUndequeuedBufs) {
         OMX_U32 newBufferCount = def.nBufferCountMin + minUndequeuedBufs;
         def.nBufferCountActual = newBufferCount;
