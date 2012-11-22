@@ -1,6 +1,7 @@
 /*
 **
 ** Copyright 2007, The Android Open Source Project
+** Copyright (C) 2012 Freescale Semiconductor, Inc.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -285,6 +286,7 @@ status_t AudioTrack::set(
     mAuxEffectId = 0;
     mFlags = flags;
     mCbf = cbf;
+    mOutput = output;
 
     if (cbf != NULL) {
         mAudioTrackThread = new AudioTrackThread(*this, threadCanCallJava);
@@ -702,6 +704,13 @@ status_t AudioTrack::reload()
     (void) mProxy->stepUser(mFrameCount);
 
     return NO_ERROR;
+}
+
+audio_io_handle_t AudioTrack::getCurrentOutput()
+{
+    AutoMutex lock(mLock);
+    ALOGV("AudioTrack::getCurrentOutput %d",mOutput);
+    return mOutput;
 }
 
 audio_io_handle_t AudioTrack::getOutput()
