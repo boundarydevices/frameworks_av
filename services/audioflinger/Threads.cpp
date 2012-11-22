@@ -1555,6 +1555,8 @@ void AudioFlinger::PlaybackThread::audioConfigChanged_l(int event, int param) {
         desc.frameCount = mNormalFrameCount; // FIXME see
                                              // AudioFlinger::frameCount(audio_io_handle_t)
         desc.latency = latency();
+        if (mType == DIRECT)
+            desc.flags = AUDIO_OUTPUT_FLAG_DIRECT;
         param2 = &desc;
         break;
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006-2007 The Android Open Source Project
+** Copyright (C) 2012 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -292,6 +293,25 @@ status_t AudioSystem::getFrameCount(audio_io_handle_t output,
 
     ALOGV("getFrameCount() streamType %d, output %d, frameCount %d", streamType, output,
             *frameCount);
+
+    return NO_ERROR;
+}
+
+status_t AudioSystem::getFlags(audio_io_handle_t output,
+                                    audio_stream_type_t streamType,
+                                    int* flags)
+{
+    OutputDescriptor *outputDesc;
+    *flags = 0;
+
+    gLock.lock();
+    outputDesc = AudioSystem::gOutputs.valueFor(output);
+    if (outputDesc != NULL) {
+        *flags = outputDesc->flags;
+        gLock.unlock();
+    }
+
+    ALOGV("getFlags() streamType %d, output %d, flags %d", streamType, output, *flags);
 
     return NO_ERROR;
 }
