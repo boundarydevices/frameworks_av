@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 The Android Open Source Project
+** Copyright (C) 2012 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -453,6 +454,7 @@ public:
      *  handle on audio hardware output
      */
             audio_io_handle_t    getOutput();
+            audio_io_handle_t    getCurrentOutput();
 
     /* Returns the unique session ID associated with this track.
      *

@@ -1,6 +1,7 @@
 /*
 **
 ** Copyright 2008, The Android Open Source Project
+** Copyright (C) 2012 Freescale Semiconductor, Inc.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -1486,6 +1487,67 @@ status_t MediaPlayerService::AudioOutput::open(
     // Check whether we can recycle the track
     bool reuse = false;
     bool bothOffloaded = false;
+    /*When the track use the direct output, it can not be used for recycle. After finishing
+      playback , the direct output must be released, and in beginning of playback it will be
+      recreated.
+      In cycle playback, if the next track also need to create direct output, but previous one is
+      not released, it will cause issue.
+      So here we checking the output flag, if it is direct output, then release it.
+    */
+    if (mRecycledTrack) {
+        int flags;
+        AudioSystem::getFlags(mRecycledTrack->getCurrentOutput(), mStreamType, &flags);
+        ALOGV("RecycledTrack getFlags %d",flags);
+        if (flags & AUDIO_OUTPUT_FLAG_DIRECT) {
+            // if we're not going to reuse the track, unblock and flush it
+            if (mCallbackData != NULL) {
+                mCallbackData->setOutput(NULL);
+                mCallbackData->endTrackSwitch();
+            }
+            mRecycledTrack->flush();
+            delete mRecycledTrack;
+            mRecycledTrack = NULL;
+            delete mCallbackData;
+            mCallbackData = NULL;
+            close();
+        }
+    }
+
+    AudioTrack *t;
+    CallbackData *newcbd = NULL;
+    if (mCallback != NULL) {
+        newcbd = new CallbackData(this);
+        t = new AudioTrack(
+                mStreamType,
+                sampleRate,
+                format,
+                channelMask,
+                frameCount,
+                flags,
+                CallbackWrapper,
+                newcbd,
+                0,  // notification frames
+                mSessionId);
+    } else {
+        t = new AudioTrack(
+                mStreamType,
+                sampleRate,
+                format,
+                channelMask,
+                frameCount,
+                flags,
+                NULL,
+                NULL,
+                0,
+                mSessionId);
+    }
+
+    if ((t == 0) || (t->initCheck() != NO_ERROR)) {
+        ALOGE("Unable to create audio track");
+        delete t;
+        delete newcbd;
+        return NO_INIT;
+    }
 
     if (mRecycledTrack != 0) {
         // check whether we are switching between two offloaded tracks
