@@ -112,6 +112,10 @@ LOCAL_STATIC_LIBRARIES := \
         libFLAC \
         libmedia_helper
 
+ifeq ($(BOARD_SOC_CLASS), IMX5X)
+   LOCAL_CFLAGS += -DIMX5X
+endif
+
 LOCAL_SHARED_LIBRARIES += \
         libstagefright_enc_common \
         libstagefright_avc_common \
