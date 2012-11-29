@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
+ * Copyright (C) 2012 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2602,6 +2603,18 @@ void OMXCodec::onCmdComplete(OMX_COMMANDTYPE cmd, OMX_U32 data) {
 
                     drainInputBuffers();
                     fillOutputBuffers();
+                    #if defined (IMX5X)
+                    Vector<BufferInfo> *buffers = &mPortBuffers[kPortIndexOutput];
+                     for (size_t i = 0; i < buffers->size(); ++i) {
+                          BufferInfo *info = &buffers->editItemAt(i);
+                          if(info->mStatus == OWNED_BY_NATIVE_WINDOW){
+                               // Give the buffer to the OMX node to fill. MX53 vpu firmware needs all buffer returned when flush
+                                 info->mStatus = OWNED_BY_US;
+                                 fillOutputBuffer(info);
+                                 info->mStatus = OWNED_BY_NATIVE_WINDOW;
+                          }
+                        }
+                    #endif
                 }
 
                 if (mOutputPortSettingsChangedPending) {
