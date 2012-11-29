@@ -107,6 +107,10 @@ LOCAL_SRC_FILES += \
         chromium_http_stub.cpp
 LOCAL_CPPFLAGS += -DCHROMIUM_AVAILABLE=1
 
+ifeq ($(BOARD_SOC_CLASS), IMX5X)
+   LOCAL_CFLAGS += -DIMX5X
+endif
+
 LOCAL_SHARED_LIBRARIES += libstlport
 include external/stlport/libstlport.mk
 
