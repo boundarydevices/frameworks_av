@@ -112,6 +112,10 @@ LOCAL_STATIC_LIBRARIES := \
         libFLAC \
         libmedia_helper
 
+ifeq ($(HAVE_FSL_IMX_CODEC),true)
+LOCAL_CFLAGS += -DFSL_GM_PLAYER
+endif
+
 ifeq ($(BOARD_SOC_CLASS), IMX5X)
    LOCAL_CFLAGS += -DIMX5X
 endif
