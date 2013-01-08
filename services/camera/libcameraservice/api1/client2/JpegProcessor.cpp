@@ -140,7 +140,7 @@ status_t JpegProcessor::updateStream(const Parameters &params) {
                     strerror(-res), res);
             return res;
         }
-
+        mMaxJpegSize = maxJpegSize.data.i32[0];
     }
     return OK;
 }
@@ -216,6 +216,8 @@ status_t JpegProcessor::processNewCapture() {
     ALOGV("%s: Camera %d: Still capture available", __FUNCTION__,
             mId);
 
+#if 0
+>>>>>>> ENGR00214328 make jpegProcess support more format than HAL_PIXEL_FORMAT_BLOB.
     if (imgBuffer.format != HAL_PIXEL_FORMAT_BLOB) {
         ALOGE("%s: Camera %d: Unexpected format for still image: "
                 "%x, expected %x", __FUNCTION__, mId,
@@ -224,11 +226,11 @@ status_t JpegProcessor::processNewCapture() {
         mCaptureConsumer->unlockBuffer(imgBuffer);
         return OK;
     }
-
+#endif
     // Find size of JPEG image
-    size_t jpegSize = findJpegSize(imgBuffer.data, imgBuffer.width);
+    size_t jpegSize = findJpegSize(imgBuffer.data, mMaxJpegSize/*imgBuffer.width*/);
     if (jpegSize == 0) { // failed to find size, default to whole buffer
-        jpegSize = imgBuffer.width;
+        jpegSize = mMaxJpegSize;//imgBuffer.width;
     }
     size_t heapSize = mCaptureHeap->getSize();
     if (jpegSize > heapSize) {
