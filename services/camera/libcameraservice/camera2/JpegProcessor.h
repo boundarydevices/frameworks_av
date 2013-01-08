@@ -73,7 +73,7 @@ class JpegProcessor:
 
     status_t processNewCapture(sp<Camera2Client> &client);
     size_t findJpegSize(uint8_t* jpegBuffer, size_t maxSize);
-
+    int mMaxJpegSize;
 };
 
 
