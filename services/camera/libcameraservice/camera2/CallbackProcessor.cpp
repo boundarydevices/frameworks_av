@@ -177,6 +177,10 @@ status_t CallbackProcessor::processNewCallback(sp<Camera2Client> &client) {
     sp<Camera2Heap> callbackHeap;
     size_t heapIdx;
 
+    if (mCallbackConsumer.get() == NULL) {
+        return BAD_VALUE;
+    }
+
     CpuConsumer::LockedBuffer imgBuffer;
     ALOGV("%s: Getting buffer", __FUNCTION__);
     res = mCallbackConsumer->lockNextBuffer(&imgBuffer);
