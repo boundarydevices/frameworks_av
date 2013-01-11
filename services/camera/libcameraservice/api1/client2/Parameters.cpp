@@ -142,6 +142,7 @@ status_t Parameters::initialize(const CameraMetadata *info) {
                     CameraParameters::PIXEL_FORMAT_YUV422I;
                 break;
             case HAL_PIXEL_FORMAT_YV12:
+            case HAL_PIXEL_FORMAT_YCbCr_420_P:
                 supportedPreviewFormats +=
                     CameraParameters::PIXEL_FORMAT_YUV420P;
                 break;
@@ -2110,7 +2111,7 @@ int Parameters::formatStringToEnum(const char *format) {
         !strcmp(format, CameraParameters::PIXEL_FORMAT_YUV422I) ?
             HAL_PIXEL_FORMAT_YCbCr_422_I :  // YUY2
         !strcmp(format, CameraParameters::PIXEL_FORMAT_YUV420P) ?
-            HAL_PIXEL_FORMAT_YV12 :         // YV12
+            HAL_PIXEL_FORMAT_YCbCr_420_P :         // YV12
         !strcmp(format, CameraParameters::PIXEL_FORMAT_RGB565) ?
             HAL_PIXEL_FORMAT_RGB_565 :      // RGB565
         !strcmp(format, CameraParameters::PIXEL_FORMAT_RGBA8888) ?
@@ -2133,6 +2134,7 @@ const char* Parameters::formatEnumToString(int format) {
             fmt = CameraParameters::PIXEL_FORMAT_YUV422I;
             break;
         case HAL_PIXEL_FORMAT_YV12:        // YV12
+        case HAL_PIXEL_FORMAT_YCbCr_420_P:        // I420
             fmt = CameraParameters::PIXEL_FORMAT_YUV420P;
             break;
         case HAL_PIXEL_FORMAT_RGB_565:     // RGB565
