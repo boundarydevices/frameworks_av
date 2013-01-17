@@ -83,8 +83,6 @@ status_t Parameters::initialize(const CameraMetadata *info) {
         }
         params.set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES,
                 supportedPreviewSizes);
-        params.set(CameraParameters::KEY_SUPPORTED_VIDEO_SIZES,
-                supportedPreviewSizes);
     }
 
     camera_metadata_ro_entry_t availableFpsRanges =
