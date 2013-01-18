@@ -227,10 +227,19 @@ status_t JpegProcessor::processNewCapture() {
         return OK;
     }
 #endif
-    // Find size of JPEG image
-    size_t jpegSize = findJpegSize(imgBuffer.data, mMaxJpegSize/*imgBuffer.width*/);
+    // Find size of JPEG image   
+    int size = 0;
+    if (imgBuffer.format != HAL_PIXEL_FORMAT_BLOB) {
+        //now only support nv12.
+        size = imgBuffer.stride * imgBuffer.height * 3/2;
+    }
+    else {
+        size = mMaxJpegSize;
+    }
+
+    size_t jpegSize = findJpegSize(imgBuffer.data, size/*imgBuffer.width*/);
     if (jpegSize == 0) { // failed to find size, default to whole buffer
-        jpegSize = mMaxJpegSize;//imgBuffer.width;
+        jpegSize = size;//imgBuffer.width;
     }
     size_t heapSize = mCaptureHeap->getSize();
     if (jpegSize > heapSize) {
