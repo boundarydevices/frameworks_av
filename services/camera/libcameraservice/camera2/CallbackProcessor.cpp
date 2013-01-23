@@ -149,6 +149,8 @@ void CallbackProcessor::dump(int fd, const Vector<String16>& args) const {
 
 bool CallbackProcessor::threadLoop() {
     status_t res;
+    sp<Camera2Heap> callbackHeap = NULL;
+    sp<CpuConsumer> callbackConsumer = NULL;
 
     {
         Mutex::Autolock l(mInputMutex);
@@ -158,32 +160,35 @@ bool CallbackProcessor::threadLoop() {
             if (res == TIMED_OUT) return true;
         }
         mCallbackAvailable = false;
+        callbackHeap = mCallbackHeap;
+        callbackConsumer = mCallbackConsumer;
     }
 
     do {
         sp<Camera2Client> client = mClient.promote();
         if (client == 0) return false;
-        res = processNewCallback(client);
+        res = processNewCallback(client, callbackHeap, callbackConsumer);
     } while (res == OK);
 
     return true;
 }
 
-status_t CallbackProcessor::processNewCallback(sp<Camera2Client> &client) {
+status_t CallbackProcessor::processNewCallback(sp<Camera2Client> &client,
+         sp<Camera2Heap> callbackHeap, sp<CpuConsumer> callbackConsumer) {
     ATRACE_CALL();
     status_t res;
 
     int callbackHeapId;
-    sp<Camera2Heap> callbackHeap;
+    //sp<Camera2Heap> callbackHeap;
     size_t heapIdx;
 
-    if (mCallbackConsumer.get() == NULL) {
+    if (callbackConsumer.get() == NULL) {
         return BAD_VALUE;
     }
 
     CpuConsumer::LockedBuffer imgBuffer;
     ALOGV("%s: Getting buffer", __FUNCTION__);
-    res = mCallbackConsumer->lockNextBuffer(&imgBuffer);
+    res = callbackConsumer->lockNextBuffer(&imgBuffer);
     if (res != OK) {
         if (res != BAD_VALUE) {
             ALOGE("%s: Camera %d: Error receiving next callback buffer: "
@@ -202,21 +207,21 @@ status_t CallbackProcessor::processNewCallback(sp<Camera2Client> &client) {
                 && l.mParameters.state != Parameters::VIDEO_SNAPSHOT) {
             ALOGV("%s: Camera %d: No longer streaming",
                     __FUNCTION__, client->getCameraId());
-            mCallbackConsumer->unlockBuffer(imgBuffer);
+            callbackConsumer->unlockBuffer(imgBuffer);
             return OK;
         }
 
         if (! (l.mParameters.previewCallbackFlags &
                 CAMERA_FRAME_CALLBACK_FLAG_ENABLE_MASK) ) {
             ALOGV("%s: No longer enabled, dropping", __FUNCTION__);
-            mCallbackConsumer->unlockBuffer(imgBuffer);
+            callbackConsumer->unlockBuffer(imgBuffer);
             return OK;
         }
         if ((l.mParameters.previewCallbackFlags &
                         CAMERA_FRAME_CALLBACK_FLAG_ONE_SHOT_MASK) &&
                 !l.mParameters.previewCallbackOneShot) {
             ALOGV("%s: One shot mode, already sent, dropping", __FUNCTION__);
-            mCallbackConsumer->unlockBuffer(imgBuffer);
+            callbackConsumer->unlockBuffer(imgBuffer);
             return OK;
         }
 
@@ -224,7 +229,7 @@ status_t CallbackProcessor::processNewCallback(sp<Camera2Client> &client) {
             ALOGE("%s: Camera %d: Unexpected format for callback: "
                     "%x, expected %x", __FUNCTION__, client->getCameraId(),
                     imgBuffer.format, l.mParameters.previewFormat);
-            mCallbackConsumer->unlockBuffer(imgBuffer);
+            callbackConsumer->unlockBuffer(imgBuffer);
             return INVALID_OPERATION;
         }
 
@@ -239,19 +244,21 @@ status_t CallbackProcessor::processNewCallback(sp<Camera2Client> &client) {
     size_t bufferSize = Camera2Client::calculateBufferSize(
             imgBuffer.width, imgBuffer.height,
             imgBuffer.format, imgBuffer.stride);
-    size_t currentBufferSize = (mCallbackHeap == 0) ?
-            0 : (mCallbackHeap->mHeap->getSize() / kCallbackHeapCount);
+    size_t currentBufferSize = (callbackHeap == 0) ?
+            0 : (callbackHeap->mHeap->getSize() / kCallbackHeapCount);
     if (bufferSize != currentBufferSize) {
+        callbackHeap.clear();
         mCallbackHeap.clear();
-        mCallbackHeap = new Camera2Heap(bufferSize, kCallbackHeapCount,
+        callbackHeap = new Camera2Heap(bufferSize, kCallbackHeapCount,
                 "Camera2Client::CallbackHeap");
-        if (mCallbackHeap->mHeap->getSize() == 0) {
+        if (callbackHeap->mHeap->getSize() == 0) {
             ALOGE("%s: Camera %d: Unable to allocate memory for callbacks",
                     __FUNCTION__, client->getCameraId());
-            mCallbackConsumer->unlockBuffer(imgBuffer);
+            callbackConsumer->unlockBuffer(imgBuffer);
             return INVALID_OPERATION;
         }
 
+        mCallbackHeap = callbackHeap;
         mCallbackHeapHead = 0;
         mCallbackHeapFree = kCallbackHeapCount;
     }
@@ -259,7 +266,7 @@ status_t CallbackProcessor::processNewCallback(sp<Camera2Client> &client) {
     if (mCallbackHeapFree == 0) {
         ALOGE("%s: Camera %d: No free callback buffers, dropping frame",
                 __FUNCTION__, client->getCameraId());
-        mCallbackConsumer->unlockBuffer(imgBuffer);
+        callbackConsumer->unlockBuffer(imgBuffer);
         return OK;
     }
 
@@ -273,14 +280,17 @@ status_t CallbackProcessor::processNewCallback(sp<Camera2Client> &client) {
 
     ssize_t offset;
     size_t size;
+    if (callbackHeap == NULL || callbackHeap->mBuffers == NULL) {
+        return BAD_VALUE;
+    }
     sp<IMemoryHeap> heap =
-            mCallbackHeap->mBuffers[heapIdx]->getMemory(&offset,
+            callbackHeap->mBuffers[heapIdx]->getMemory(&offset,
                     &size);
     uint8_t *data = (uint8_t*)heap->getBase() + offset;
     memcpy(data, imgBuffer.data, bufferSize);
 
     ALOGV("%s: Freeing buffer", __FUNCTION__);
-    mCallbackConsumer->unlockBuffer(imgBuffer);
+    callbackConsumer->unlockBuffer(imgBuffer);
 
     // Call outside parameter lock to allow re-entrancy from notification
     {
@@ -289,7 +299,7 @@ status_t CallbackProcessor::processNewCallback(sp<Camera2Client> &client) {
             ALOGV("%s: Camera %d: Invoking client data callback",
                     __FUNCTION__, client->getCameraId());
             l.mCameraClient->dataCallback(CAMERA_MSG_PREVIEW_FRAME,
-                    mCallbackHeap->mBuffers[heapIdx], NULL);
+                    callbackHeap->mBuffers[heapIdx], NULL);
         }
     }
 

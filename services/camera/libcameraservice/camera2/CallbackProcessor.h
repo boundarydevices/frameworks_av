@@ -71,7 +71,8 @@ class CallbackProcessor:
 
     virtual bool threadLoop();
 
-    status_t processNewCallback(sp<Camera2Client> &client);
+    status_t processNewCallback(sp<Camera2Client> &client,
+             sp<Camera2Heap> callbackHeap, sp<CpuConsumer> callbackConsumer);
 
 };
 
