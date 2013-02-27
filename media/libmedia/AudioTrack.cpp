@@ -1127,6 +1127,7 @@ ssize_t AudioTrack::write(const void* buffer, size_t userSize)
             // Divide capacity by 2 to take expansion into account
             toWrite = audioBuffer.size>>1;
             memcpy_to_i16_from_u8(audioBuffer.i16, (const uint8_t *) src, toWrite);
+            src += toWrite;
         } else {
             toWrite = audioBuffer.size;
             memcpy(audioBuffer.i8, src, toWrite);
