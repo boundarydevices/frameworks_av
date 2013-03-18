@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
+ * Copyright (C) 2013 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -894,6 +895,7 @@ void AudioPolicyService::AudioCommandThread::insertCommand_l(sp<AudioCommand>& c
             if (mAudioCommands[k].get() == removedCommands[j].get()) {
                 ALOGV("suppressing command: %d", mAudioCommands[k]->mCommand);
                 mAudioCommands.removeAt(k);
+                i = k - 1;
                 break;
             }
         }
