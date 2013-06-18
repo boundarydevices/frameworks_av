@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/*
+ * Copyright (C) 2013 Freescale Semiconductor, Inc.
+*/
+
 #define LOG_TAG "Camera2-JpegProcessor"
 #define ATRACE_TAG ATRACE_TAG_CAMERA
 //#define LOG_NDEBUG 0
@@ -353,7 +357,7 @@ size_t JpegProcessor::findJpegSize(uint8_t* jpegBuffer, size_t maxSize) {
     }
 
     // Read JFIF segment markers, skip over segment data
-    size = 0;
+    size = MARKER_LENGTH; //jump SOI
     while (size <= maxSize - MARKER_LENGTH) {
         segment_t *segment = (segment_t*)(jpegBuffer + size);
         uint8_t type = checkJpegMarker(segment->marker);
