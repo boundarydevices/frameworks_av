@@ -41,14 +41,13 @@ LOCAL_SHARED_LIBRARIES :=       \
     libvorbisidec               \
 
 ifeq ($(HAVE_FSL_IMX_CODEC),true)
-LOCAL_SHARED_LIBRARIES +=                       \
-	lib_omx_player_arm11_elinux \
-	lib_omx_osal_v2_arm11_elinux \
-	lib_omx_client_arm11_elinux \
-	lib_omx_utils_v2_arm11_elinux \
-	lib_omx_core_mgr_v2_arm11_elinux \
-	lib_omx_res_mgr_v2_arm11_elinux \
-	lib_id3_parser_arm11_elinux
+#LOCAL_SHARED_LIBRARIES +=                       \
+#	lib_omx_osal_v2_arm11_elinux \
+#	lib_omx_client_arm11_elinux \
+#	lib_omx_utils_v2_arm11_elinux \
+#	lib_omx_core_mgr_v2_arm11_elinux \
+#	lib_omx_res_mgr_v2_arm11_elinux \
+#	lib_id3_parser_arm11_elinux
 endif
 
 LOCAL_STATIC_LIBRARIES :=       \
@@ -64,7 +63,7 @@ LOCAL_C_INCLUDES :=                                                 \
     $(TOP)/external/tremolo/Tremolo                                 \
 
 ifeq ($(HAVE_FSL_IMX_CODEC),true)
-LOCAL_CFLAGS += -DFSL_GM_PLAYER
+#LOCAL_CFLAGS += -DFSL_GM_PLAYER
 endif
 
 ifeq ($(TARGET_BOARD_PLATFORM), imx6)
