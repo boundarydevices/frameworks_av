@@ -809,7 +809,7 @@ status_t ATSParser::Stream::parsePES(ABitReader *br) {
                      "payload. (numBitsLeft = %d, required = %d)",
                      br->numBitsLeft(), dataLength * 8);
 
-                return ERROR_MALFORMED;
+                return OK;//ERROR_MALFORMED;
             }
 
             CHECK_GE(br->numBitsLeft(), dataLength * 8);
