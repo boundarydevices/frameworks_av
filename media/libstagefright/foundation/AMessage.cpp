@@ -35,6 +35,7 @@ AMessage::AMessage(uint32_t what, ALooper::handler_id target)
     : mWhat(what),
       mTarget(target),
       mNumItems(0) {
+    memset(&mItems, 0, sizeof(mItems));
 }
 
 AMessage::~AMessage() {
@@ -69,7 +70,10 @@ void AMessage::freeItem(Item *item) {
     switch (item->mType) {
         case kTypeString:
         {
-            delete item->u.stringValue;
+            if (item->u.stringValue != NULL) {
+                delete item->u.stringValue;
+                item->u.stringValue = NULL;
+            }
             break;
         }
 
@@ -79,6 +83,7 @@ void AMessage::freeItem(Item *item) {
         {
             if (item->u.refValue != NULL) {
                 item->u.refValue->decStrong(this);
+                item->u.refValue = NULL;
             }
             break;
         }
