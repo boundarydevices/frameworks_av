@@ -473,7 +473,7 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
 
                 if (err == -EWOULDBLOCK) {
                     if (mSource->feedMoreTSData() == OK) {
-                        msg->post(10000ll);
+                        msg->post(2000ll);
                     }
                 }
             } else if (what == ACodec::kWhatEOS) {
@@ -558,7 +558,7 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                                 numChannels,
                                 (audio_channel_mask_t)channelMask,
                                 AUDIO_FORMAT_PCM_16_BIT,
-                                8 /* bufferCount */,
+                                DEFAULT_AUDIOSINK_BUFFERCOUNT /* bufferCount */,
                                 NULL,
                                 NULL,
                                 flags),
@@ -682,6 +682,10 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
 
                 CHECK(msg->findInt64("videoLateByUs", &mVideoLateByUs));
 
+                if (mSource != NULL) {
+                    mSource->setRenderPosition(positionUs);
+                }
+ 
                 if (mDriver != NULL) {
                     sp<NuPlayerDriver> driver = mDriver.promote();
                     if (driver != NULL) {

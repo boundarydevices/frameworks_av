@@ -78,6 +78,8 @@ struct NuPlayer::Source : public AHandler {
         return false;
     }
 
+    virtual void setRenderPosition(int64_t positionUs) {}
+
 protected:
     virtual ~Source() {}
 
