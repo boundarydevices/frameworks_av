@@ -288,7 +288,7 @@ bool NuPlayer::Renderer::onDrainAudioQueue() {
                 mNumFramesWritten - numFramesPlayed;
 
             int64_t realTimeOffsetUs =
-                (mAudioSink->latency() / 2  /* XXX */
+                (mAudioSink->latency() / 4  /* XXX */
                     + numFramesPendingPlayout
                         * mAudioSink->msecsPerFrame()) * 1000ll;
 
