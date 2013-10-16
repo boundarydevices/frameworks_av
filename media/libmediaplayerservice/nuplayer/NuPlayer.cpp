@@ -737,7 +737,7 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
 
                 if (err == -EWOULDBLOCK) {
                     if (mSource->feedMoreTSData() == OK) {
-                        msg->post(10 * 1000ll);
+                        msg->post(2000ll);
                     }
                 }
             } else if (what == Decoder::kWhatEOS) {
@@ -1241,6 +1241,13 @@ status_t NuPlayer::feedDecoderInputData(bool audio, const sp<AMessage> &msg) {
             err = mPendingAudioErr;
             ALOGV("feedDecoderInputData() use mPendingAudioAccessUnit");
         } else {
+            int64_t positionUs;
+            if (getCurrentPosition(&positionUs) == OK) {
+                mSource->setRenderPosition(positionUs);
+            }
+            else {
+                ALOGE("%s getCurrentPosition failed.", __FUNCTION__);
+            }
             err = mSource->dequeueAccessUnit(audio, &accessUnit);
         }
 

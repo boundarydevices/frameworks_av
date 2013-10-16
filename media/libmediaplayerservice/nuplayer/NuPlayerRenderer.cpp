@@ -1250,7 +1250,7 @@ int64_t NuPlayer::Renderer::getPlayedOutAudioDurationUs(int64_t nowUs) {
         res = mAudioSink->getPosition(&numFramesPlayed);
         CHECK_EQ(res, (status_t)OK);
         numFramesPlayedAt = nowUs;
-        numFramesPlayedAt += 1000LL * mAudioSink->latency() / 2; /* XXX */
+        numFramesPlayedAt += 1000LL * mAudioSink->latency() / 4; /* XXX */
         //ALOGD("getPosition: %d %lld", numFramesPlayed, numFramesPlayedAt);
     }
 
@@ -1383,7 +1383,7 @@ bool NuPlayer::Renderer::onOpenAudioSink(
                     numChannels,
                     (audio_channel_mask_t)channelMask,
                     audioFormat,
-                    8 /* bufferCount */,
+                    DEFAULT_AUDIOSINK_BUFFERCOUNT /* bufferCount */,
                     &NuPlayer::Renderer::AudioSinkCallback,
                     this,
                     (audio_output_flags_t)flags,
