@@ -428,12 +428,17 @@ status_t StreamingProcessor::startStream(StreamType type,
 
     Mutex::Autolock m(mMutex);
 
+
+    //Force-freed buffer will make status chaos.
+    //So a buffer maybe updated while it's under encoding.
+#if 0
     // If a recording stream is being started up, free up any
     // outstanding buffers left from the previous recording session.
     // There should never be any, so if there are, warn about it.
     if (isStreamActive(outputStreams, mRecordingStreamId)) {
         releaseAllRecordingFramesLocked();
     }
+#endif
 
     ALOGV("%s: Camera %d: %s started, recording heap has %d free of %d",
             __FUNCTION__, mId, (type == PREVIEW) ? "preview" : "recording",
