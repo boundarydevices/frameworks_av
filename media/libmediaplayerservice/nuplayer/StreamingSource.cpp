@@ -242,6 +242,8 @@ bool NuPlayer::StreamingSource::discardMediaDate(bool audio, int64_t timeUs, sp<
 
         source =
             static_cast<AnotherPacketSource *>(mTSParser->getSource(type).get());
+        if (source == NULL)
+            return false;
 
         while (1) {
             if (!source->hasBufferAvailable(&finalResult)) {
@@ -254,6 +256,8 @@ bool NuPlayer::StreamingSource::discardMediaDate(bool audio, int64_t timeUs, sp<
 
         source =
             static_cast<AnotherPacketSource *>(mTSParser->getSource(type).get());
+        if (source == NULL)
+            return false;
 
         nBufferedTimeUs = source->getBufferedDurationUs(&error);
         if (nBufferedTimeUs > DROP_VIDEO_THRESHOLD) {
@@ -302,12 +306,12 @@ bool NuPlayer::StreamingSource::discardMediaDate(bool audio, int64_t timeUs, sp<
     char value[PROPERTY_VALUE_MAX];
     int64_t nQualityCriteria = QUALITY_CATIRIA;
     // property for adjust quality criteria in ms, shouldn't less than 2 seconds.
-    if ((property_get("rw.wifisink.quality", value, NULL))) {
+    if ((property_get("sys.wifisink.quality", value, NULL))) {
         nQualityCriteria = atoi(value) * 1000;
     } 
 
     // property for adjust latency threshold in ms.
-    if ((property_get("rw.wifisink.latency", value, NULL))) {
+    if ((property_get("sys.wifisink.latency", value, NULL))) {
         mLatencyThreshold = atoi(value) * 1000;
     } else {
         // Adjust drop threshold.
@@ -367,7 +371,7 @@ status_t NuPlayer::StreamingSource::dequeueAccessUnit(
             CHECK((*accessUnit)->meta()->findInt64("timeUs", &timeUs));
             ALOGV("dequeueAccessUnit timeUs=%lld us", timeUs);
 
-            if (!(mSource->flags() | IStreamSource::kFlagKeepLowLatency \
+            if (!(mSource->flags() & IStreamSource::kFlagKeepLowLatency \
                         && mPositionUs > 0)) 
                 break;
             if (discardMediaDate(audio, timeUs, accessUnit) == false)
