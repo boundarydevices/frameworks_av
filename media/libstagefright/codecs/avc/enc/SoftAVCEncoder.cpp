@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 2013 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -149,8 +150,8 @@ SoftAVCEncoder::SoftAVCEncoder(
             OMX_PTR appData,
             OMX_COMPONENTTYPE **component)
     : SoftVideoEncoderOMXComponent(name, callbacks, appData, component),
-      mVideoWidth(176),
-      mVideoHeight(144),
+      mVideoWidth(320),
+      mVideoHeight(240),
       mVideoFrameRate(30),
       mVideoBitRate(192000),
       mVideoColorFormat(OMX_COLOR_FormatYUV420Planar),
