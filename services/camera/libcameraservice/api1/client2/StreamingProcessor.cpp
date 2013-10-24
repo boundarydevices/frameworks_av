@@ -691,7 +691,7 @@ status_t StreamingProcessor::processRecordingFrame() {
         }
 
         if ( mRecordingHeapFree == 0) {
-            ALOGE("%s: Camera %d: No free recording buffers, dropping frame",
+            ALOGV("%s: Camera %d: No free recording buffers, dropping frame",
                     __FUNCTION__, mId);
             mRecordingConsumer->releaseBuffer(imgBuffer);
             return NO_MEMORY;
