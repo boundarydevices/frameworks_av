@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006-2007 The Android Open Source Project
-** Copyright (C) 2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2012-2013 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -308,8 +308,8 @@ status_t AudioSystem::getFlags(audio_io_handle_t output,
     outputDesc = AudioSystem::gOutputs.valueFor(output);
     if (outputDesc != NULL) {
         *flags = outputDesc->flags;
-        gLock.unlock();
     }
+    gLock.unlock();
 
     ALOGV("getFlags() streamType %d, output %d, flags %d", streamType, output, *flags);
 
