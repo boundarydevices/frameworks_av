@@ -3171,8 +3171,8 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
                 name,
                 AudioMixer::TRACK,
                 AudioMixer::CHANNEL_MASK, (void *)track->channelMask());
-            // limit track sample rate to 2 x output sample rate, which changes at re-configuration
-            uint32_t maxSampleRate = mSampleRate * 2;
+            // limit track sample rate to 8 x output sample rate, which changes at re-configuration
+            uint32_t maxSampleRate = mSampleRate * 8;
             uint32_t reqSampleRate = track->mAudioTrackServerProxy->getSampleRate();
             if (reqSampleRate == 0) {
                 reqSampleRate = mSampleRate;
