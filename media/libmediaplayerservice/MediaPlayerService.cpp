@@ -1500,7 +1500,7 @@ status_t MediaPlayerService::AudioOutput::open(
       not released, it will cause issue.
       So here we checking the output flag, if it is direct output, then release it.
     */
-    if (mRecycledTrack) {
+    if (mRecycledTrack != 0) {
         int flags;
         AudioSystem::getFlags(mRecycledTrack->getCurrentOutput(), mStreamType, &flags);
         ALOGV("RecycledTrack getFlags %d",flags);
@@ -1511,7 +1511,6 @@ status_t MediaPlayerService::AudioOutput::open(
                 mCallbackData->endTrackSwitch();
             }
             mRecycledTrack->flush();
-            delete mRecycledTrack;
             mRecycledTrack = NULL;
             delete mCallbackData;
             mCallbackData = NULL;
@@ -1519,7 +1518,7 @@ status_t MediaPlayerService::AudioOutput::open(
         }
     }
 
-    AudioTrack *t;
+    sp<AudioTrack> t;
     CallbackData *newcbd = NULL;
     if (mCallback != NULL) {
         newcbd = new CallbackData(this);
@@ -1550,7 +1549,7 @@ status_t MediaPlayerService::AudioOutput::open(
 
     if ((t == 0) || (t->initCheck() != NO_ERROR)) {
         ALOGE("Unable to create audio track");
-        delete t;
+        t = 0;
         delete newcbd;
         return NO_INIT;
     }
@@ -1592,9 +1591,6 @@ status_t MediaPlayerService::AudioOutput::open(
         ALOGV("both offloaded and not recycling");
         deleteRecycledTrack();
     }
-
-    sp<AudioTrack> t;
-    CallbackData *newcbd = NULL;
 
     // We don't attempt to create a new track if we are recycling an
     // offloaded track. But, if we are recycling a non-offloaded or we

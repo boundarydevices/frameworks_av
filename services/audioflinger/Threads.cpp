@@ -3680,7 +3680,7 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::DirectOutputThread::prep
                     // it will then automatically call start() when data is available
                     android_atomic_or(CBLK_DISABLED, &cblk->mFlags);
                 } else if (last) {
-                    android_atomic_or(CBLK_DISABLED, &cblk->flags);
+                    android_atomic_or(CBLK_DISABLED, &cblk->mFlags);
                 } else if (i == (count -1)){
                     mixerStatus = MIXER_TRACKS_ENABLED;
                 }
