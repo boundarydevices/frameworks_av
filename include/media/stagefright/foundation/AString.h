@@ -66,6 +66,7 @@ struct AString {
 
     size_t hash() const;
 
+    bool operator==(const char* s) const;
     bool operator==(const AString &other) const;
     bool operator<(const AString &other) const;
     bool operator>(const AString &other) const;
@@ -78,13 +79,9 @@ struct AString {
     void tolower();
 
 private:
-    static const char *kEmptyString;
-
     char *mData;
     size_t mSize;
     size_t mAllocSize;
-
-    void makeMutable();
 };
 
 AString StringPrintf(const char *format, ...);
