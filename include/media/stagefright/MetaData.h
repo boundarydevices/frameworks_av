@@ -25,6 +25,7 @@
 #include <utils/RefBase.h>
 #include <utils/KeyedVector.h>
 #include <utils/String8.h>
+#include <utils/Mutex.h>
 
 namespace android {
 
@@ -239,7 +240,7 @@ private:
 
         union {
             void *ext_data;
-            float reservoir;
+            int64_t reservoir;
         } u;
 
         bool usesReservoir() const {
@@ -262,6 +263,7 @@ private:
         int32_t mLeft, mTop, mRight, mBottom;
     };
 
+    Mutex mMutex;
     KeyedVector<uint32_t, typed_data> mItems;
 
     // MetaData &operator=(const MetaData &);
