@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/*
+ * Copyright (C) 2013 Freescale Semiconductor, Inc.
+ */
+
 #ifndef ANDROID_SERVERS_CAMERA_CAMERA2_STREAMINGPROCESSOR_H
 #define ANDROID_SERVERS_CAMERA_CAMERA2_STREAMINGPROCESSOR_H
 
@@ -114,7 +118,7 @@ class StreamingProcessor:
     sp<BufferItemConsumer> mRecordingConsumer;
     sp<ANativeWindow>  mRecordingWindow;
     CameraMetadata mRecordingRequest;
-    sp<camera2::Camera2Heap> mRecordingHeap;
+    sp<camera2::Camera2Heap> mRecordingHeap;	
 
     bool mRecordingFrameAvailable;
     Condition mRecordingFrameAvailableSignal;
@@ -123,6 +127,7 @@ class StreamingProcessor:
     size_t mRecordingHeapCount;
     Vector<BufferItemConsumer::BufferItem> mRecordingBuffers;
     size_t mRecordingHeapHead, mRecordingHeapFree;
+	int32_t *mpHeapStatus;
 
     virtual bool threadLoop();
 
