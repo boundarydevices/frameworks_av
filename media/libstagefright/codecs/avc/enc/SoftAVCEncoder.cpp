@@ -851,6 +851,8 @@ void SoftAVCEncoder::onQueueFilled(OMX_U32 /* portIndex */) {
 
                         inQueue.erase(inQueue.begin());
                         inInfo->mOwnedByUs = false;
+
+                        inHeader->nFlags = OMX_BUFFERFLAG_FRAMEDROP;
                         notifyEmptyBufferDone(inHeader);
                         return;
                     }
@@ -899,6 +901,7 @@ void SoftAVCEncoder::onQueueFilled(OMX_U32 /* portIndex */) {
 
         inQueue.erase(inQueue.begin());
         inInfo->mOwnedByUs = false;
+        inHeader->nFlags = 0;
         notifyEmptyBufferDone(inHeader);
 
         outQueue.erase(outQueue.begin());
