@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
- * Copyright (C) 2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2012-2013 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2118,6 +2118,14 @@ void OMXCodec::on_message(const omx_message &msg) {
         case omx_message::EMPTY_BUFFER_DONE:
         {
             IOMX::buffer_id buffer = msg.u.extended_buffer_data.buffer;
+
+			//If the frame is dropped by avcEncoder, need drop stamp in mDecodingTimeList
+            OMX_BUFFERHEADERTYPE *head = (OMX_BUFFERHEADERTYPE *)buffer;
+             if( mIsEncoder && mIsVideo && (!strcasecmp(MEDIA_MIMETYPE_VIDEO_AVC, mMIME)) &&
+                (head->nFlags == OMX_BUFFERFLAG_FRAMEDROP) ) {
+                CODEC_LOGV("drop time stamp %lld us", head->nTimeStamp);
+                getDecodingTimeUs();
+             }
 
             CODEC_LOGV("EMPTY_BUFFER_DONE(buffer: %p)", buffer);
 
