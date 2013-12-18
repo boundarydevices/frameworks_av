@@ -903,6 +903,10 @@ status_t NuPlayer::instantiateDecoder(bool audio, sp<Decoder> *decoder) {
         AString mime;
         CHECK(format->findString("mime", &mime));
         mVideoIsAVC = !strcasecmp(MEDIA_MIMETYPE_VIDEO_AVC, mime.c_str());
+        if (mVideoIsAVC && mSource->isAVCReorderDisabled())
+            format->setString("disreorder", "1");
+        else
+            format->setString("disreorder", "0");
     }
 
     sp<AMessage> notify =
