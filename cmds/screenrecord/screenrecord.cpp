@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+/*
+ * Copyright (C) 2014 Freescale Semiconductor, Inc.
+ */
+
 #define LOG_TAG "ScreenRecord"
 //#define LOG_NDEBUG 0
 #include <utils/Log.h>
@@ -501,9 +505,11 @@ static status_t recordScreen(const char* fileName) {
     // Main encoder loop.
     err = runEncoder(encoder, muxer);
     if (err != NO_ERROR) {
+        // If err occurs, make sure the mp4 file is ended correctly,
+        // In other words, sample table is written to the end of file.
+        encoder->stop();
+        muxer->stop();
         encoder->release();
-        encoder.clear();
-
         return err;
     }
 
