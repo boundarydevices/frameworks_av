@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 #ifndef MEDIA_EXTRACTOR_H_
 
 #define MEDIA_EXTRACTOR_H_
@@ -24,7 +24,7 @@
 namespace android {
 
 class DataSource;
-class MediaSource;
+struct MediaSource;
 class MetaData;
 
 class MediaExtractor : public BnMediaExtractor {
