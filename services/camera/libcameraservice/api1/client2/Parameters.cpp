@@ -1123,9 +1123,6 @@ status_t Parameters::set(const String8& paramString) {
     // RECORDING_HINT (always supported)
     validatedParams.recordingHint = boolFromString(
         newParams.get(CameraParameters::KEY_RECORDING_HINT) );
-    bool recordingHintChanged = validatedParams.recordingHint != recordingHint;
-    ALOGV_IF(recordingHintChanged, "%s: Recording hint changed to %d",
-            __FUNCTION__, recordingHintChanged);
 
     // PREVIEW_FPS_RANGE
     bool fpsRangeChanged = false;
@@ -1201,9 +1198,13 @@ status_t Parameters::set(const String8& paramString) {
     // the range.  To detect whether the application has changed the value of
     // previewFps, compare against their last-set preview FPS.
     if (!fpsRangeChanged) {
+        // fsl platform private change.
+        // because preview and recording share the same camera path.
+        // that means preview fps decides recording fps.
+        // so replace recordingHintChanged condition to recordingHint.
         int previewFps = newParams.getPreviewFrameRate();
         int lastSetPreviewFps = params.getPreviewFrameRate();
-        if (previewFps != lastSetPreviewFps || recordingHintChanged) {
+        if (previewFps != lastSetPreviewFps || validatedParams.recordingHint) {
             camera_metadata_ro_entry_t availableFrameRates =
                 staticInfo(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
             /**
@@ -1263,6 +1264,12 @@ status_t Parameters::set(const String8& paramString) {
                     bestRange.min;
             validatedParams.previewFpsRange[1] =
                     bestRange.max;
+
+            // sync the previewFpsRange to newParams.
+            newParams.set(CameraParameters::KEY_PREVIEW_FPS_RANGE,
+                String8::format("%d,%d",
+                        validatedParams.previewFpsRange[0] * kFpsToApiScale,
+                        validatedParams.previewFpsRange[1] * kFpsToApiScale));
 
             ALOGV("%s: New preview FPS range: %d, %d, recordingHint = %d",
                 __FUNCTION__,
