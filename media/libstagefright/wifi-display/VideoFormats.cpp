@@ -532,7 +532,7 @@ bool VideoFormats::PickBestFormat(
                 continue;
             }
 
-            ALOGV("type %u, index %u, %u x %u %c%u supported",
+            ALOGD("type %u, index %u, %u x %u %c%u supported",
                   i, j, width, height, interlaced ? 'i' : 'p', framesPerSecond);
 
             uint32_t score = width * height * framesPerSecond;
