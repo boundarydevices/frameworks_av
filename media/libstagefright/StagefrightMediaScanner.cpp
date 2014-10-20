@@ -47,7 +47,7 @@ static bool FileHasAcceptableExtension(const char *extension) {
         ".avi", ".mpeg", ".mpg", ".awb", ".mpga"
 #ifdef FSL_GM_PLAYER
         , ".divx", ".mov", ".m4v", ".adts", ".asf", ".wmv", ".vob",
-        ".f4v", ".flv"
+        ".f4v", ".flv", ".rmvb", ".rm", ".ra", ".rv"
 #endif
     };
     static const size_t kNumValidExtensions =
