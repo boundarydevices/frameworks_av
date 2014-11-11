@@ -15,7 +15,7 @@
 ** limitations under the License.
 */
 
-/* Copyright (C) 2013 Freescale Semiconductor, Inc. */
+/* Copyright (C) 2013-2014 Freescale Semiconductor, Inc. */
 
 #define LOG_TAG "MediaPlayerFactory"
 #include <utils/Log.h>
@@ -23,6 +23,8 @@
 #include <cutils/properties.h>
 #include <media/IMediaPlayer.h>
 #include <media/stagefright/foundation/ADebug.h>
+#include <media/IMediaHTTPConnection.h>
+#include <media/stagefright/MediaHTTP.h>
 #include <utils/Errors.h>
 #include <utils/misc.h>
 
@@ -125,7 +127,8 @@ void MediaPlayerFactory::unregisterFactory(player_type type) {
 
 player_type MediaPlayerFactory::getPlayerType(const sp<IMediaPlayer>& client,
                                               const char* url,
-                                              const KeyedVector<String8, String8> *headers) {
+                                              const KeyedVector<String8, String8> *headers,
+                                              const IMediaHTTPService* httpService) {
     GET_PLAYER_TYPE_IMPL(client, url, bestScore, headers);
 }
 
@@ -192,7 +195,8 @@ enum {
 };
 
 bool isWVM(const char* url,
-           const KeyedVector<String8, String8> *headers) {
+           const KeyedVector<String8, String8> *headers,
+           IMediaHTTPService* httpService) {
     sp<DataSource> dataSource;
     String8 mUri;
     KeyedVector<String8, String8> mUriHeaders;
@@ -227,10 +231,12 @@ bool isWVM(const char* url,
 
     if (!strncasecmp("http://", mUri.string(), 7)
             || !strncasecmp("https://", mUri.string(), 8)) {
-        mConnectingDataSource = HTTPBase::Create(
-                (mFlags & INCOGNITO)
-                    ? HTTPBase::kFlagIncognito
-                    : 0);
+        if (httpService == NULL) {
+            ALOGI("Attempt to get video from http URI without HTTP service.");
+            return false;
+        }
+        sp<IMediaHTTPConnection> conn = httpService->makeHTTPConnection();
+        mConnectingDataSource = new MediaHTTP(conn);
 
         String8 cacheConfig;
         bool disconnectAtHighwatermark;
@@ -265,7 +271,7 @@ bool isWVM(const char* url,
         // without this prefill.
 
     } else {
-        dataSource = DataSource::CreateFromURI(mUri.string(), &mUriHeaders);
+        dataSource = DataSource::CreateFromURI(httpService, mUri.string(), &mUriHeaders);
     }
 
     if (dataSource == NULL) {
@@ -325,7 +331,8 @@ class OMXPlayerFactory : public MediaPlayerFactory::IFactory {
         virtual float scoreFactory(const sp<IMediaPlayer>& client,
                 const char* url,
                 float curScore,
-                const KeyedVector<String8, String8> *headers) {
+                const KeyedVector<String8, String8> *headers,
+                const IMediaHTTPService* httpService) {
             static const float kOurScore = 1.0;
             static const char* const FILE_EXTS[] = {
                 ".avi",
@@ -372,7 +379,7 @@ class OMXPlayerFactory : public MediaPlayerFactory::IFactory {
                 return 0.0;
 
             if (!strncasecmp(url, "http://", 7)) { 
-                if (isWVM(url, headers))
+                if (isWVM(url, headers, (IMediaHTTPService*)httpService))
                 return 0.0;
             }
             
@@ -475,7 +482,8 @@ class NuPlayerFactory : public MediaPlayerFactory::IFactory {
     virtual float scoreFactory(const sp<IMediaPlayer>& /*client*/,
                                const char* url,
                                float curScore,
-                               const KeyedVector<String8, String8> *headers) {
+                               const KeyedVector<String8, String8> *headers,
+                               const IMediaHTTPService* httpService) {
         static const float kOurScore = 0.8;
 
         if (kOurScore <= curScore)
@@ -522,7 +530,8 @@ class SonivoxPlayerFactory : public MediaPlayerFactory::IFactory {
     virtual float scoreFactory(const sp<IMediaPlayer>& /*client*/,
                                const char* url,
                                float curScore,
-                               const KeyedVector<String8, String8> *headers) {
+                               const KeyedVector<String8, String8> *headers,
+                               const IMediaHTTPService* httpService) {
         static const float kOurScore = 0.4;
         static const char* const FILE_EXTS[] = { ".mid",
                                                  ".midi",
@@ -592,7 +601,8 @@ class TestPlayerFactory : public MediaPlayerFactory::IFactory {
     virtual float scoreFactory(const sp<IMediaPlayer>& /*client*/,
                                const char* url,
                                float /*curScore*/,
-                               const KeyedVector<String8, String8> *headers) {
+                               const KeyedVector<String8, String8> *headers,
+                               const IMediaHTTPService* httpService) {
         if (TestPlayerStub::canBeUsed(url)) {
             return 1.0;
         }
