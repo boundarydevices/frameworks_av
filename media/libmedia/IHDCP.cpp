@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2015 Freescale Semiconductor, Inc.*/
 //#define LOG_NDEBUG 0
 #define LOG_TAG "IHDCP"
 #include <utils/Log.h>
@@ -240,6 +240,7 @@ status_t BnHDCP::onTransact(
 
         case HDCP_ENCRYPT:
         {
+            CHECK_INTERFACE(IHDCP, data, reply);
             size_t size = data.readInt32();
             size_t bufSize = 2 * size;
 
@@ -311,6 +312,8 @@ status_t BnHDCP::onTransact(
 
         case HDCP_DECRYPT:
         {
+            CHECK_INTERFACE(IHDCP, data, reply);
+
             size_t size = data.readInt32();
             size_t bufSize = 2 * size;
 
