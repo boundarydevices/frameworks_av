@@ -240,6 +240,7 @@ status_t BnHDCP::onTransact(
 
         case HDCP_ENCRYPT:
         {
+            CHECK_INTERFACE(IHDCP, data, reply);
             size_t size = data.readInt32();
 
             void *inData = malloc(2 * size);
@@ -294,6 +295,8 @@ status_t BnHDCP::onTransact(
 
         case HDCP_DECRYPT:
         {
+            CHECK_INTERFACE(IHDCP, data, reply);
+
             size_t size = data.readInt32();
 
             void *inData = malloc(2 * size);
