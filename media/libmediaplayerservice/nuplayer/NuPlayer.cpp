@@ -1879,6 +1879,18 @@ void NuPlayer::onSourceNotify(const sp<AMessage> &msg) {
             break;
         }
 
+        case Source::kWhatNeedCurrentPosition:
+        {
+            int64_t positionUs;
+            if (getCurrentPosition(&positionUs) == OK) {
+                mSource->setRenderPosition(positionUs);
+            }
+            else {
+                ALOGE("%s getCurrentPosition failed.", __FUNCTION__);
+            }
+            break;
+        }
+
         default:
             TRESPASS();
     }
@@ -2004,6 +2016,12 @@ void NuPlayer::Source::notifyInstantiateSecureDecoders(const sp<AMessage> &reply
     sp<AMessage> notify = dupNotify();
     notify->setInt32("what", kWhatInstantiateSecureDecoders);
     notify->setMessage("reply", reply);
+    notify->post();
+}
+
+void NuPlayer::Source::notifyNeedCurrentPosition() {
+    sp<AMessage> notify = dupNotify();
+    notify->setInt32("what", kWhatNeedCurrentPosition);
     notify->post();
 }
 

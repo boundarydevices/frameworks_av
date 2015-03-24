@@ -57,6 +57,7 @@ struct NuPlayer::Source : public AHandler {
         kWhatQueueDecoderShutdown,
         kWhatDrmNoLicense,
         kWhatInstantiateSecureDecoders,
+        kWhatNeedCurrentPosition,
     };
 
     // The provides message is used to notify the player about various
@@ -122,6 +123,8 @@ struct NuPlayer::Source : public AHandler {
         return false;
     }
 
+    virtual void setRenderPosition(int64_t positionUs) {}
+
 protected:
     virtual ~Source() {}
 
@@ -133,6 +136,7 @@ protected:
     void notifyVideoSizeChanged(const sp<AMessage> &format = NULL);
     void notifyInstantiateSecureDecoders(const sp<AMessage> &reply);
     void notifyPrepared(status_t err = OK);
+    void notifyNeedCurrentPosition();
 
 private:
     sp<AMessage> mNotify;
