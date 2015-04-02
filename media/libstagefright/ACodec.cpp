@@ -3289,7 +3289,7 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
                     if(rect.nHeight > 0
                         && rect.nHeight < videoDef->nFrameHeight
                         && !strncmp(mComponentName.c_str(), "OMX.Freescale.std.video_decoder", 31)
-                        && strstr(mComponentName.c_str(),"hw-based")){
+                        ){
 
                         ALOGW("ACodec map vpu crop info: output crop: %d, frameH %d", rect.nHeight, videoDef->nFrameHeight);
                         notify->setInt32("slice-height", videoDef->nFrameHeight);
