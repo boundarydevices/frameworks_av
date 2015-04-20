@@ -15,6 +15,8 @@
  ** limitations under the License.
  */
 
+/* Copyright (C) 2015 Freescale Semiconductor, Inc. */
+
 #ifndef ANDROID_MEDIARECORDERCLIENT_H
 #define ANDROID_MEDIARECORDERCLIENT_H
 
@@ -26,6 +28,11 @@ class MediaRecorderBase;
 class MediaPlayerService;
 class ICameraRecordingProxy;
 class IGraphicBufferProducer;
+
+enum recorder_type {
+    STAGEFRIGHT_RECORDER = 1,
+    OMX_RECORDER = 2,
+};
 
 class MediaRecorderClient : public BnMediaRecorder
 {
@@ -65,11 +72,16 @@ private:
                                    const sp<MediaPlayerService>& service,
                                                                pid_t pid);
     virtual                ~MediaRecorderClient();
+    void                   CreateRecorder(int vs);
 
     pid_t                  mPid;
     Mutex                  mLock;
     MediaRecorderBase      *mRecorder;
     sp<MediaPlayerService> mMediaPlayerService;
+    recorder_type          mRecorderType;
+    int                    mAudioSource;
+    bool                   mInited;
+    sp<IMediaRecorderClient> mListener;
 };
 
 }; // namespace android
