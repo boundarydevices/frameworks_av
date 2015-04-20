@@ -14,7 +14,7 @@
  ** limitations under the License.
  */
 
-/* Copyright 2009-2013 Freescale Semiconductor Inc. */
+/* Copyright (C) 2009-2013, 2015 Freescale Semiconductor, Inc. */
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "MediaRecorderService"
@@ -50,6 +50,10 @@ namespace android {
 
 const char* cameraPermission = "android.permission.CAMERA";
 const char* recordAudioPermission = "android.permission.RECORD_AUDIO";
+
+#define INVALID_AUDIO_SOURCE (-1)
+#define INVALID_VIDEO_SOURCE (-1)
+
 
 static bool checkPermission(const char* permissionString) {
 #ifndef HAVE_ANDROID_OS
@@ -110,6 +114,38 @@ status_t MediaRecorderClient::setVideoSource(int vs)
         ALOGE("recorder is not initialized");
         return NO_INIT;
     }
+#ifdef FSL_GM_PLAYER
+
+    if((vs != VIDEO_SOURCE_CAMERA && mRecorderType == OMX_RECORDER)
+        ||
+        (vs == VIDEO_SOURCE_CAMERA && mRecorderType != OMX_RECORDER))
+    {
+        ALOGV("need to switch between omx and stagefright");
+
+        if(mRecorder != NULL){
+            delete mRecorder;
+            mRecorder = NULL;
+        }
+        CreateRecorder(vs);
+
+        if(mInited){
+            ALOGV("call init");
+            mRecorder->init();
+        }
+
+        if(mListener != NULL){
+            ALOGV("setListener");
+            mRecorder->setListener(mListener);
+        }
+
+        if(mAudioSource != INVALID_AUDIO_SOURCE){
+            ALOGV("setAudioSource %d", mAudioSource);
+            mRecorder->setAudioSource((audio_source_t)mAudioSource);
+        }
+    }
+
+#endif
+
     return mRecorder->setVideoSource((video_source)vs);
 }
 
@@ -124,6 +160,8 @@ status_t MediaRecorderClient::setAudioSource(int as)
         ALOGE("recorder is not initialized");
         return NO_INIT;
     }
+
+    mAudioSource = as;
     return mRecorder->setAudioSource((audio_source_t)as);
 }
 
@@ -268,6 +306,7 @@ status_t MediaRecorderClient::init()
         ALOGE("recorder is not initialized");
         return NO_INIT;
     }
+    mInited = true;
     return mRecorder->init();
 }
 
@@ -291,6 +330,9 @@ status_t MediaRecorderClient::reset()
         ALOGE("recorder is not initialized");
         return NO_INIT;
     }
+    mAudioSource = INVALID_AUDIO_SOURCE;
+    mInited = false;
+    mListener = NULL;
     return mRecorder->reset();
 }
 
@@ -311,19 +353,15 @@ MediaRecorderClient::MediaRecorderClient(const sp<MediaPlayerService>& service, 
 {
     ALOGV("Client constructor");
     mPid = pid;
-#ifdef FSL_GM_PLAYER
-	char value[PROPERTY_VALUE_MAX];
-	if (property_get("media.omxgm.enable-record", value, NULL)
-			&& ( !strcmp(value, "1") || !strcasecmp(value, "true"))) {
-		mRecorder = new OMXRecorder;
-	} else {
-#endif
-		mRecorder = new StagefrightRecorder;
-#ifdef FSL_GM_PLAYER
-	}
-#endif
+    mAudioSource = INVALID_AUDIO_SOURCE;
+    mInited = false;
+    mListener = NULL;
+
+    CreateRecorder(INVALID_VIDEO_SOURCE);
+
     mMediaPlayerService = service;
 }
+
 
 MediaRecorderClient::~MediaRecorderClient()
 {
@@ -339,6 +377,7 @@ status_t MediaRecorderClient::setListener(const sp<IMediaRecorderClient>& listen
         ALOGE("recorder is not initialized");
         return NO_INIT;
     }
+    mListener = listener;
     return mRecorder->setListener(listener);
 }
 
@@ -358,5 +397,26 @@ status_t MediaRecorderClient::dump(int fd, const Vector<String16>& args) const {
     }
     return OK;
 }
+
+void MediaRecorderClient::CreateRecorder(int vs)
+{
+
+#ifdef FSL_GM_PLAYER
+    char value[PROPERTY_VALUE_MAX];
+    if (property_get("media.omxgm.enable-record", value, NULL)
+            && ( !strcmp(value, "1") || !strcasecmp(value, "true"))
+            && (vs == VIDEO_SOURCE_CAMERA || vs == INVALID_VIDEO_SOURCE)
+    ) {
+        mRecorder = new OMXRecorder;
+        mRecorderType = OMX_RECORDER;
+        return;
+    }
+#endif
+
+    mRecorder = new StagefrightRecorder;
+    mRecorderType = STAGEFRIGHT_RECORDER;
+
+}
+
 
 }; // namespace android
