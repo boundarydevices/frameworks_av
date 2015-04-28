@@ -88,6 +88,8 @@ status_t MediaRecorderClient::setCamera(const sp<ICamera>& camera,
         ALOGE("recorder is not initialized");
         return NO_INIT;
     }
+    mCamera = camera;
+    mProxy = proxy;
     return mRecorder->setCamera(camera, proxy);
 }
 
@@ -116,9 +118,16 @@ status_t MediaRecorderClient::setVideoSource(int vs)
     }
 #ifdef FSL_GM_PLAYER
 
+    bool omxgm_enable_record = false;
+    char value[PROPERTY_VALUE_MAX];
+    if (property_get("media.omxgm.enable-record", value, NULL)
+                && ( !strcmp(value, "1") || !strcasecmp(value, "true"))
+        )
+        omxgm_enable_record = true;
+
     if((vs != VIDEO_SOURCE_CAMERA && mRecorderType == OMX_RECORDER)
         ||
-        (vs == VIDEO_SOURCE_CAMERA && mRecorderType != OMX_RECORDER))
+        (vs == VIDEO_SOURCE_CAMERA && mRecorderType != OMX_RECORDER && omxgm_enable_record))
     {
         ALOGV("need to switch between omx and stagefright");
 
@@ -128,18 +137,28 @@ status_t MediaRecorderClient::setVideoSource(int vs)
         }
         CreateRecorder(vs);
 
+        if(mClientNameSet){
+            ALOGV("call setClientName");
+            mRecorder->setClientName(mClientName);
+        }
+
+        if(mCamera != NULL && mProxy != NULL){
+            ALOGV("call setCamera");
+            mRecorder->setCamera(mCamera, mProxy);
+        }
+
         if(mInited){
             ALOGV("call init");
             mRecorder->init();
         }
 
         if(mListener != NULL){
-            ALOGV("setListener");
+            ALOGV("call setListener");
             mRecorder->setListener(mListener);
         }
 
         if(mAudioSource != INVALID_AUDIO_SOURCE){
-            ALOGV("setAudioSource %d", mAudioSource);
+            ALOGV("call setAudioSource %d", mAudioSource);
             mRecorder->setAudioSource((audio_source_t)mAudioSource);
         }
     }
@@ -333,6 +352,9 @@ status_t MediaRecorderClient::reset()
     mAudioSource = INVALID_AUDIO_SOURCE;
     mInited = false;
     mListener = NULL;
+    mCamera = NULL;
+    mProxy = NULL;
+    mClientNameSet = false;
     return mRecorder->reset();
 }
 
@@ -356,6 +378,9 @@ MediaRecorderClient::MediaRecorderClient(const sp<MediaPlayerService>& service, 
     mAudioSource = INVALID_AUDIO_SOURCE;
     mInited = false;
     mListener = NULL;
+    mCamera = NULL;
+    mProxy = NULL;
+    mClientNameSet = false;
 
     CreateRecorder(INVALID_VIDEO_SOURCE);
 
@@ -388,6 +413,8 @@ status_t MediaRecorderClient::setClientName(const String16& clientName) {
         ALOGE("recorder is not initialized");
         return NO_INIT;
     }
+    mClientName = clientName;
+    mClientNameSet = true;
     return mRecorder->setClientName(clientName);
 }
 
