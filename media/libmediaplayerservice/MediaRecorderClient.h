@@ -82,6 +82,10 @@ private:
     int                    mAudioSource;
     bool                   mInited;
     sp<IMediaRecorderClient> mListener;
+    sp<ICamera>            mCamera;
+    sp<ICameraRecordingProxy> mProxy;
+    String16               mClientName;
+    bool                   mClientNameSet;
 };
 
 }; // namespace android
