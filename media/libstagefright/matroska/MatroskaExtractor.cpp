@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2015 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -893,6 +894,11 @@ status_t addVorbisCodecInfo(
         return ERROR_MALFORMED;
     }
     len2 += codecPrivate[offset++];
+
+    if( (len1 > SIZE_MAX - offset) || (len2 > SIZE_MAX - offset) ||
+        (len1 + len2 > SIZE_MAX - offset) ) {
+        return ERROR_MALFORMED;
+    }
 
     if (codecPrivateSize < offset + len1 + len2) {
         return ERROR_MALFORMED;
