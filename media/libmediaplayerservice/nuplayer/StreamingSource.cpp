@@ -309,6 +309,7 @@ bool NuPlayer::StreamingSource::discardMediaDate(bool audio, int64_t timeUs, sp<
                 break;
 
             feedMoreTSData();
+            usleep(1000);
         }
 
         type = ATSParser::AUDIO;
