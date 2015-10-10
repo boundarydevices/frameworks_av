@@ -1,6 +1,7 @@
 /*
 **
 ** Copyright 2012, The Android Open Source Project
+** Copyright (C) 2013-2016 Freescale Semiconductor, Inc.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -1986,6 +1987,8 @@ sp<AudioFlinger::PlaybackThread::Track> AudioFlinger::PlaybackThread::createTrac
                 goto Exit;
             }
         }
+        if ((*flags & AUDIO_OUTPUT_FLAG_DIRECT) == 0)
+            *flags = (audio_output_flags_t)(*flags | AUDIO_OUTPUT_FLAG_DIRECT);
         break;
 
     case OFFLOAD:
@@ -4784,6 +4787,7 @@ AudioFlinger::DirectOutputThread::DirectOutputThread(const sp<AudioFlinger>& aud
     :   PlaybackThread(audioFlinger, output, id, device, DIRECT, systemReady)
         // mLeftVolFloat, mRightVolFloat
 {
+    mpPreActiveTrack = NULL;
 }
 
 AudioFlinger::DirectOutputThread::DirectOutputThread(const sp<AudioFlinger>& audioFlinger,
@@ -4969,6 +4973,36 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::DirectOutputThread::prep
                 // reset retry count
                 track->mRetryCount = kMaxTrackRetriesDirect;
                 mActiveTrack = t;
+
+                // If active track changed, should drain frame in previous active track, or it has no chance to destory.
+                if(mpPreActiveTrack && (mpPreActiveTrack != mActiveTrack.get()) && mpPreActiveTrack->isStopping_1()) {
+                    int cycle = 0;
+                    size_t frameReady = mpPreActiveTrack->framesReady();
+                    ALOGI("activeTrack changed, cur %p, pre %p, pre frameReady %d",
+                        mActiveTrack.get(), mpPreActiveTrack, frameReady);
+
+                    while(frameReady) {
+                        //avoid dead loop
+                        cycle++;
+                        if(cycle > 100) {
+                            ALOGW("too much cycle to drain off pre active track");
+                            break;
+                        }
+
+                        AudioBufferProvider::Buffer buffer;
+                        buffer.frameCount = frameReady;
+
+                        mpPreActiveTrack->getNextBuffer(&buffer);
+                        mpPreActiveTrack->releaseBuffer(&buffer);
+
+                        frameReady = mpPreActiveTrack->framesReady();
+                    }
+
+                    ALOGI("after drain pre active track, frameReady %d", mpPreActiveTrack->framesReady());
+                }
+
+                mpPreActiveTrack = mActiveTrack.get();
+
                 mixerStatus = MIXER_TRACKS_READY;
                 if (mHwPaused) {
                     doHwResume = true;
@@ -5021,6 +5055,8 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::DirectOutputThread::prep
                     // it will then automatically call start() when data is available
                     track->disable();
                 } else if (last) {
+                    android_atomic_or(CBLK_DISABLED, &cblk->mFlags);
+                } else if (i == (count -1)){
                     ALOGW("pause because of UNDERRUN, framesReady = %zu,"
                             "minFrames = %u, mFormat = %#x",
                             track->framesReady(), minFrames, mFormat);
@@ -5068,6 +5104,13 @@ void AudioFlinger::DirectOutputThread::threadLoop_mix()
 {
     size_t frameCount = mFrameCount;
     int8_t *curBuf = (int8_t *)mSinkBuffer;
+
+    //can prepareTracks_l assure mActiveTrack valid ?
+    if(mActiveTrack.get() == NULL) {
+        ALOGW("DirectOutputThread::threadLoop_mix, no active track");
+        return;
+    }
+
     // output audio to hardware
     while (frameCount) {
         AudioBufferProvider::Buffer buffer;
