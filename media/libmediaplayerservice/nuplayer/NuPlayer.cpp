@@ -2341,7 +2341,17 @@ void NuPlayer::onSourceNotify(const sp<AMessage> &msg) {
             notifyListener(MEDIA_ERROR, MEDIA_ERROR_UNKNOWN, ERROR_DRM_NO_LICENSE);
             break;
         }
-
+        case Source::kWhatNeedCurrentPosition:
+        {
+            int64_t positionUs;
+            if (getCurrentPosition(&positionUs) == OK) {
+                mSource->setRenderPosition(positionUs);
+            }else{
+                ALOGE("%s getCurrentPosition failed.", __FUNCTION__);
+            }
+            break;
+        }
+        break;
         default:
             TRESPASS();
     }
@@ -2487,7 +2497,11 @@ void NuPlayer::Source::notifyInstantiateSecureDecoders(const sp<AMessage> &reply
     notify->setMessage("reply", reply);
     notify->post();
 }
-
+void NuPlayer::Source::notifyNeedCurrentPosition() {
+    sp<AMessage> notify = dupNotify();
+    notify->setInt32("what", kWhatNeedCurrentPosition);
+    notify->post();
+}
 void NuPlayer::Source::onMessageReceived(const sp<AMessage> & /* msg */) {
     TRESPASS();
 }
