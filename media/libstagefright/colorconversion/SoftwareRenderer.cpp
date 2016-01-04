@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2016 Freescale Semiconductor, Inc.*/
 #define LOG_TAG "SoftwareRenderer"
 #include <utils/Log.h>
 
@@ -36,6 +36,11 @@ static bool runningInEmulator() {
 static int ALIGN(int x, int y) {
     // y must be a power of 2.
     return (x + y - 1) & ~(y - 1);
+}
+
+static bool supportYUVComposer() {
+    char prop[PROPERTY_VALUE_MAX];
+    return !(property_get("sys.composer.no-yuv-support", prop, NULL) > 0);
 }
 
 SoftwareRenderer::SoftwareRenderer(
@@ -112,9 +117,11 @@ void SoftwareRenderer::resetFormatIfChanged(const sp<AMessage> &format) {
             case OMX_COLOR_FormatYUV420SemiPlanar:
             case OMX_TI_COLOR_FormatYUV420PackedSemiPlanar:
             {
-                halFormat = HAL_PIXEL_FORMAT_YV12;
-                bufWidth = (mCropWidth + 1) & ~1;
-                bufHeight = (mCropHeight + 1) & ~1;
+                if(supportYUVComposer()){
+                    halFormat = HAL_PIXEL_FORMAT_YV12;
+                    bufWidth = (mCropWidth + 1) & ~1;
+                    bufHeight = (mCropHeight + 1) & ~1;
+                }
                 break;
             }
             case OMX_COLOR_Format24bitRGB888:
