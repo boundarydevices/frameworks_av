@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "FileSource"
 #include <utils/Log.h>
@@ -97,6 +97,9 @@ FileSource::FileSource(int fd, int64_t offset, int64_t length)
             (long long) mOffset,
             (long long) mLength);
 
+    if (mFd >= 0 && mLength >= 0x7ffffffffffffffL) {
+        mLength = lseek64(mFd, 0, SEEK_END);
+    }
 }
 
 FileSource::~FileSource() {
