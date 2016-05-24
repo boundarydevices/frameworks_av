@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/* Copyright (C) 2016 Freescale Semiconductor, Inc.*/
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "MediaCodecList"
@@ -43,6 +44,8 @@
 #include <expat.h>
 
 namespace android {
+
+extern bool isForceUseGoogleAACCodec;
 
 const char *kMaxEncoderInputBuffers = "max-video-encoder-input-buffers";
 
@@ -1151,6 +1154,21 @@ void MediaCodecList::findMatchingCodecs(
     }
 
     size_t index = 0;
+
+    bool use_fsl_video = false;
+    bool use_fsl_audio = false;
+    int value;
+    value = property_get_int32("media.fsl_codec.flag", 2);
+    if(value & 0x02)
+        use_fsl_video = true;
+    if(value & 0x04)
+        use_fsl_audio = true;
+
+    // workaround for MA-8032, if isForceUseGoogleAACCodec is true,
+    // temporary disable fsl audio codec, after codec is loaded, this value must be reset to 0.
+    if(isForceUseGoogleAACCodec)
+        use_fsl_audio = false;
+
     for (;;) {
         ssize_t matchIndex =
             list->findCodecByType(mime, encoder, index);
@@ -1164,6 +1182,12 @@ void MediaCodecList::findMatchingCodecs(
         const sp<MediaCodecInfo> info = list->getCodecInfo(matchIndex);
         CHECK(info != NULL);
         AString componentName = info->getCodecName();
+
+        if(!strncmp(componentName.c_str(), "OMX.Freescale.std.video_decoder", 30) && !use_fsl_video)
+            continue;
+
+        if(!strncmp(componentName.c_str(), "OMX.Freescale.std.audio_decoder", 30) && !use_fsl_audio)
+            continue;
 
         if (!((flags & kHardwareCodecsOnly) && !isSoftwareCodec(componentName))) {
             matches->push(componentName);

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 #ifndef A_CODEC_H_
 
 #define A_CODEC_H_
@@ -70,6 +70,13 @@ struct ACodec : public AHierarchicalStateMachine, public CodecBase {
     virtual void onMessageReceived(const sp<AMessage> &msg) {
         handleMessage(msg);
     }
+
+    void cleanCropContent(
+        uint32_t nFrameWidth,
+        uint32_t nFrameHeight,
+        OMX_CONFIG_RECTTYPE sRectIn,
+        void * base,
+        PixelFormat eColorFormat);
 
     struct PortDescription : public CodecBase::PortDescription {
         size_t countBuffers();
@@ -304,6 +311,11 @@ private:
 
     bool mTunneled;
 
+    bool mSetStartTime;
+    OMX_ENDIANTYPE eEndian;
+    android_native_rect_t mOutCrop;
+    int32_t mFrameCleanCrop;
+
     OMX_INDEXTYPE mDescribeColorAspectsIndex;
     OMX_INDEXTYPE mDescribeHDRStaticInfoIndex;
 
@@ -461,6 +473,10 @@ private:
             int32_t aacProfile, bool isADTS, int32_t sbrMode,
             int32_t maxOutputChannelCount, const drcParams_t& drc,
             int32_t pcmLimiterEnable);
+    status_t setupAACADIFCodec(
+            bool encoder,
+            int32_t numChannels, int32_t sampleRate, int32_t maxOutputChannelCount,
+            const drcParams_t& drc, int32_t pcmLimiterEnable);
 
     status_t setupAC3Codec(bool encoder, int32_t numChannels, int32_t sampleRate);
 
@@ -558,10 +574,14 @@ private:
 
     status_t requestIDRFrame();
     status_t setParameters(const sp<AMessage> &params);
+    status_t setupWMVDecoderParameters(const sp<AMessage> &msg);
+    status_t setupWMACodec(bool encoder, const sp<AMessage> &msg);
+    status_t setupAPECodec(bool encoder, const sp<AMessage> &msg);
+    status_t setupRACodec(bool encoder, const sp<AMessage> &msg);
 
     // Send EOS on input stream.
     void onSignalEndOfInputStream();
-
+    status_t setMediaTime(int64_t time);
     DISALLOW_EVIL_CONSTRUCTORS(ACodec);
 };
 

@@ -47,17 +47,24 @@
 #include <media/hardware/HardwareAPI.h>
 
 #include <OMX_AudioExt.h>
+#include <OMX_Video.h>
 #include <OMX_VideoExt.h>
 #include <OMX_Component.h>
 #include <OMX_IndexExt.h>
 #include <OMX_AsString.h>
 
 #include "include/avc_utils.h"
+
+#include <OMX_Implement.h>
+#include <cutils/properties.h>
+
 #include "include/DataConverter.h"
 #include "omx/OMXUtils.h"
 
+
 namespace android {
 
+extern bool isForceUseGoogleAACCodec;
 enum {
     kMaxIndicesToCheck = 32, // used when enumerating supported formats and profiles
 };
@@ -524,6 +531,8 @@ ACodec::ACodec()
       mTimePerCaptureUs(-1ll),
       mCreateInputBuffersSuspended(false),
       mTunneled(false),
+      mSetStartTime(false),
+      mFrameCleanCrop(0),
       mDescribeColorAspectsIndex((OMX_INDEXTYPE)0),
       mDescribeHDRStaticInfoIndex((OMX_INDEXTYPE)0) {
     mUninitializedState = new UninitializedState(this);
@@ -541,6 +550,8 @@ ACodec::ACodec()
 
     mPortEOS[kPortIndexInput] = mPortEOS[kPortIndexOutput] = false;
     mInputEOSResult = OK;
+    mOutCrop = {0,0,0,0};
+    eEndian = OMX_EndianLittle;
 
     memset(&mLastNativeWindowCrop, 0, sizeof(mLastNativeWindowCrop));
 
@@ -1668,6 +1679,24 @@ const char *ACodec::getComponentRole(
             "video_decoder.vp8", "video_encoder.vp8" },
         { MEDIA_MIMETYPE_VIDEO_VP9,
             "video_decoder.vp9", "video_encoder.vp9" },
+        { MEDIA_MIMETYPE_VIDEO_WMV9,
+            "video_decoder.wmv9", "video_encoder.wmv9" },
+        { MEDIA_MIMETYPE_VIDEO_WMV,
+            "video_decoder.wmv", "video_encoder.wmv" },
+        { MEDIA_MIMETYPE_VIDEO_REAL,
+            "video_decoder.rv", "video_encoder.rv" },
+        { MEDIA_MIMETYPE_VIDEO_SORENSON,
+            "video_decoder.sorenson", "video_encoder.sorenson" },
+        { MEDIA_MIMETYPE_VIDEO_MJPEG,
+            "video_decoder.mjpeg", "video_encoder.mjpeg" },
+        { MEDIA_MIMETYPE_VIDEO_DIVX,
+            "video_decoder.divx", "video_encoder.divx" },
+        { MEDIA_MIMETYPE_VIDEO_DIV4,
+            "video_decoder.div4", "video_encoder.div4" },
+        { MEDIA_MIMETYPE_VIDEO_DIV3,
+            "video_decoder.div3", "video_encoder.div3" },
+        { MEDIA_MIMETYPE_VIDEO_XVID,
+            "video_decoder.xvid", "video_encoder.xvid" },
         { MEDIA_MIMETYPE_AUDIO_RAW,
             "audio_decoder.raw", "audio_encoder.raw" },
         { MEDIA_MIMETYPE_VIDEO_DOLBY_VISION,
@@ -1682,6 +1711,12 @@ const char *ACodec::getComponentRole(
             "audio_decoder.ac3", "audio_encoder.ac3" },
         { MEDIA_MIMETYPE_AUDIO_EAC3,
             "audio_decoder.eac3", "audio_encoder.eac3" },
+        { MEDIA_MIMETYPE_AUDIO_WMA,
+            "audio_decoder.wma", "audio_encoder.wma" },
+        { MEDIA_MIMETYPE_AUDIO_APE,
+            "audio_decoder.ape", "audio_encoder.ape" },
+        { MEDIA_MIMETYPE_AUDIO_REAL,
+            "audio_decoder.ra", "audio_encoder.ra" },
     };
 
     static const size_t kNumMimeToRole =
@@ -1730,6 +1765,7 @@ status_t ACodec::configureCodec(
     mConfigFormat = msg;
 
     mIsEncoder = encoder;
+    mSetStartTime = true;
 
     mInputMetadataType = kMetadataBufferTypeInvalid;
     mOutputMetadataType = kMetadataBufferTypeInvalid;
@@ -2158,13 +2194,16 @@ status_t ACodec::configureCodec(
                 || !msg->findInt32("sample-rate", &sampleRate)) {
             err = INVALID_OPERATION;
         } else {
-            int32_t isADTS, aacProfile;
+            int32_t isADTS, isADIF, aacProfile;
             int32_t sbrMode;
             int32_t maxOutputChannelCount;
             int32_t pcmLimiterEnable;
             drcParams_t drc;
             if (!msg->findInt32("is-adts", &isADTS)) {
                 isADTS = 0;
+            }
+            if (!msg->findInt32("is-adif", &isADIF)) {
+                isADIF = 0;
             }
             if (!msg->findInt32("aac-profile", &aacProfile)) {
                 aacProfile = OMX_AUDIO_AACObjectNull;
@@ -2200,11 +2239,15 @@ status_t ACodec::configureCodec(
                 // value is unknown
                 drc.targetRefLevel = -1;
             }
+            if(isADIF)
+                err = setupAACADIFCodec(
+                        encoder, numChannels, sampleRate, maxOutputChannelCount, drc, pcmLimiterEnable);
+            else
+                err = setupAACCodec(
+                        encoder, numChannels, sampleRate, bitRate, aacProfile,
+                        isADTS != 0, sbrMode, maxOutputChannelCount, drc,
+                        pcmLimiterEnable);
 
-            err = setupAACCodec(
-                    encoder, numChannels, sampleRate, bitRate, aacProfile,
-                    isADTS != 0, sbrMode, maxOutputChannelCount, drc,
-                    pcmLimiterEnable);
         }
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AMR_NB)) {
         err = setupAMRCodec(encoder, false /* isWAMR */, bitRate);
@@ -2261,6 +2304,10 @@ status_t ACodec::configureCodec(
                 || !msg->findInt32("sample-rate", &sampleRate)) {
             err = INVALID_OPERATION;
         } else {
+            int32_t isEndianBig = 0;
+            if(msg->findInt32("is-endian-big", &isEndianBig) && isEndianBig) {
+                eEndian = OMX_EndianBig;
+            }
             err = setupRawAudioFormat(kPortIndexInput, sampleRate, numChannels, pcmEncoding);
         }
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AC3)) {
@@ -2281,10 +2328,43 @@ status_t ACodec::configureCodec(
         } else {
             err = setupEAC3Codec(encoder, numChannels, sampleRate);
         }
+    } else if(!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_WMA)){
+        err = setupWMACodec(encoder,msg);
+    } else if(!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_APE)){
+        err = setupAPECodec(encoder,msg);
+    } else if(!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_REAL)){
+        err = setupRACodec(encoder,msg);
     }
+
 
     if (err != OK) {
         return err;
+    }
+
+    if((!video) && (!encoder) && mComponentName.startsWith("OMX.Freescale.std.audio_decoder")){
+        OMX_PARAM_AUDIO_OUTPUT_CONVERT sConvert;
+        InitOMXParams(&sConvert);
+        sConvert.bEnable = OMX_TRUE;
+        err = mOMX->setParameter(
+            mNode,
+            OMX_IndexParamAudioOutputConvert,
+            &sConvert,
+            sizeof(sConvert));
+        if (err != OK) {
+            return err;
+        }
+
+        OMX_PARAM_AUDIO_SEND_FIRST_PORT_SETTING_CHANGED sDef;
+        InitOMXParams(&sDef);
+        sDef.bEnable = OMX_FALSE;
+        err = mOMX->setParameter(
+            mNode,
+            OMX_IndexParamAudioSendFirstPortSettingChanged,
+            &sDef,
+            sizeof(sDef));
+        if (err != OK) {
+            err = OK;
+        }
     }
 
     if (!msg->findInt32("encoder-delay", &mEncoderDelay)) {
@@ -2820,6 +2900,57 @@ status_t ACodec::setupAACCodec(
     }
     return res;
 }
+status_t ACodec::setupAACADIFCodec(
+        bool encoder, int32_t numChannels, int32_t sampleRate,
+        int32_t maxOutputChannelCount, const drcParams_t& drc,
+        int32_t pcmLimiterEnable) {
+    if (encoder) {
+        return -EINVAL;
+    }
+
+    status_t err = setupRawAudioFormat(
+            encoder ? kPortIndexInput : kPortIndexOutput,
+            sampleRate,
+            numChannels);
+
+    if (err != OK) {
+        return err;
+    }
+
+    OMX_AUDIO_PARAM_AACPROFILETYPE profile;
+    InitOMXParams(&profile);
+    profile.nPortIndex = kPortIndexInput;
+
+    err = mOMX->getParameter(
+            mNode, OMX_IndexParamAudioAac, &profile, sizeof(profile));
+
+    if (err != OK) {
+        return err;
+    }
+
+    profile.nChannels = numChannels;
+    profile.nSampleRate = sampleRate;
+    profile.eAACStreamFormat = OMX_AUDIO_AACStreamFormatADIF;
+
+    OMX_AUDIO_PARAM_ANDROID_AACPRESENTATIONTYPE presentation;
+    presentation.nMaxOutputChannels = maxOutputChannelCount;
+    presentation.nDrcCut = drc.drcCut;
+    presentation.nDrcBoost = drc.drcBoost;
+    presentation.nHeavyCompression = drc.heavyCompression;
+    presentation.nTargetReferenceLevel = drc.targetRefLevel;
+    presentation.nEncodedTargetLevel = drc.encodedTargetLevel;
+    presentation.nPCMLimiterEnable = pcmLimiterEnable;
+
+    status_t res = mOMX->setParameter(mNode, OMX_IndexParamAudioAac, &profile, sizeof(profile));
+    if (res == OK) {
+        // optional parameters, will not cause configuration failure
+        mOMX->setParameter(mNode, (OMX_INDEXTYPE)OMX_IndexParamAudioAndroidAacPresentation,
+                &presentation, sizeof(presentation));
+    } else {
+        ALOGW("did not set AudioAndroidAacPresentation due to error %d when setting AudioAac", res);
+    }
+    return res;
+}
 
 status_t ACodec::setupAC3Codec(
         bool encoder, int32_t numChannels, int32_t sampleRate) {
@@ -2895,6 +3026,209 @@ status_t ACodec::setupEAC3Codec(
             (OMX_INDEXTYPE)OMX_IndexParamAudioAndroidEac3,
             &def,
             sizeof(def));
+}
+status_t ACodec::setupWMACodec(
+        bool encoder, const sp<AMessage> &msg) {
+    int32_t numChannels;
+    int32_t sampleRate;
+    int32_t bitPerSample = 0;
+    int32_t audioBlockAlign = 0;
+    int32_t subType = 0;
+    int32_t bitRate = 0;
+    if (!msg->findInt32("channel-count", &numChannels))
+        numChannels = 2;
+    if (!msg->findInt32("sample-rate", &sampleRate))
+        sampleRate = 44100;
+
+    status_t err = setupRawAudioFormat(
+            encoder ? kPortIndexInput : kPortIndexOutput, sampleRate, numChannels);
+
+    if (err != OK) {
+        return err;
+    }
+
+    if (encoder) {
+        ALOGW("wma encoding is not supported.");
+        return INVALID_OPERATION;
+    }
+
+    OMX_AUDIO_PARAM_WMATYPE def;
+    InitOMXParams(&def);
+    def.nPortIndex = kPortIndexInput;
+
+    err = mOMX->getParameter(
+            mNode,
+            (OMX_INDEXTYPE)OMX_IndexParamAudioWma,
+            &def,
+            sizeof(def));
+
+    if (err != OK) {
+        return err;
+    }
+    if(msg->findInt32("bit-rate", &bitRate))
+        def.nBitRate= bitRate;
+    if(msg->findInt32("channel-count", &numChannels))
+        def.nChannels = numChannels;
+    if(msg->findInt32("sample-rate", &sampleRate))
+        def.nSamplingRate = sampleRate;
+    if(msg->findInt32("audio-block-align", &audioBlockAlign))
+        def.nBlockAlign = audioBlockAlign;
+    if(msg->findInt32("sub-format", &subType))
+        def.eFormat = (OMX_AUDIO_WMAFORMATTYPE)subType;
+
+
+    err = mOMX->setParameter(
+            mNode,
+            OMX_IndexParamAudioWma,
+            &def,
+            sizeof(def));
+
+    if(err)
+        return err;
+
+    OMX_AUDIO_PARAM_WMATYPE_EXT def2;
+    InitOMXParams(&def2);
+    def2.nPortIndex = kPortIndexInput;
+
+    err = mOMX->getParameter(
+            mNode,
+            (OMX_INDEXTYPE)OMX_IndexParamAudioWmaExt,
+            &def2,
+            sizeof(def2));
+
+    if (err != OK) {
+        return err;
+    }
+    if(msg->findInt32("bit-per-sample", &bitPerSample))
+        def2.nBitsPerSample = bitPerSample;
+    ALOGI("setupWMACodec channel=%d,sampleRate=%d,bitRate=%d,bitPerSample=%d,audioBlockAlign=%d",
+        (int)numChannels,(int)bitRate,(int)sampleRate,(int)bitPerSample,(int)audioBlockAlign);
+    return mOMX->setParameter(
+            mNode,
+            (OMX_INDEXTYPE)OMX_IndexParamAudioWmaExt,
+            &def2,
+            sizeof(def2));
+}
+status_t ACodec::setupAPECodec(
+        bool encoder, const sp<AMessage> &msg) {
+    int32_t numChannels;
+    int32_t sampleRate;
+    int32_t bitPerSample;
+    if (!msg->findInt32("channel-count", &numChannels))
+        numChannels = 2;
+    if (!msg->findInt32("sample-rate", &sampleRate))
+        sampleRate = 44100;
+    if (!msg->findInt32("bit-per-sample", &bitPerSample))
+        bitPerSample = 16;
+
+    status_t err = setupRawAudioFormat(
+            encoder ? kPortIndexInput : kPortIndexOutput, sampleRate, numChannels);
+
+    if (err != OK) {
+        return err;
+    }
+
+    if (encoder) {
+        ALOGW("ape encoding is not supported.");
+        return INVALID_OPERATION;
+    }
+
+    OMX_AUDIO_PARAM_APETYPE def;
+    InitOMXParams(&def);
+    def.nPortIndex = kPortIndexInput;
+
+    err = mOMX->getParameter(
+            mNode,
+            (OMX_INDEXTYPE)OMX_IndexParamAudioApe,
+            &def,
+            sizeof(def));
+
+    if (err != OK) {
+        return err;
+    }
+    if(msg->findInt32("bit-per-sample", &bitPerSample))
+        def.nBitPerSample = bitPerSample;
+    if(msg->findInt32("channel-count", &numChannels))
+        def.nChannels = numChannels;
+    if(msg->findInt32("sample-rate", &sampleRate))
+        def.nSampleRate = sampleRate;
+
+    return mOMX->setParameter(
+            mNode,
+            OMX_IndexParamAudioApe,
+            &def,
+            sizeof(def));
+}
+status_t ACodec::setupRACodec(
+        bool encoder, const sp<AMessage> &msg) {
+    int32_t numChannels;
+    int32_t sampleRate;
+    int32_t bitsPerframe;
+    if (!msg->findInt32("channel-count", &numChannels))
+        numChannels = 2;
+    if (!msg->findInt32("sample-rate", &sampleRate))
+        sampleRate = 44100;
+    if (!msg->findInt32("bits-per-frame", &bitsPerframe))
+        bitsPerframe = 0;
+
+    status_t err = setupRawAudioFormat(
+            encoder ? kPortIndexInput : kPortIndexOutput, sampleRate, numChannels);
+
+    if (err != OK) {
+        return err;
+    }
+
+    if (encoder) {
+        ALOGW("ra encoding is not supported.");
+        return INVALID_OPERATION;
+    }
+
+    OMX_AUDIO_PARAM_RATYPE def;
+    InitOMXParams(&def);
+    def.nPortIndex = kPortIndexInput;
+
+    err = mOMX->getParameter(
+            mNode,
+            (OMX_INDEXTYPE)OMX_IndexParamAudioRa,
+            &def,
+            sizeof(def));
+
+    if (err != OK) {
+        return err;
+    }
+    if(msg->findInt32("bits-per-frame", &bitsPerframe))
+        def.nBitsPerFrame = bitsPerframe;
+    if(msg->findInt32("channel-count", &numChannels))
+        def.nChannels = numChannels;
+    if(msg->findInt32("sample-rate", &sampleRate))
+        def.nSamplingRate = sampleRate;
+
+    return mOMX->setParameter(
+            mNode,
+            OMX_IndexParamAudioRa,
+            &def,
+            sizeof(def));
+}
+status_t ACodec::setMediaTime(int64_t time) {
+
+    if(!mComponentName.startsWith("OMX.Freescale.std.video_decoder")){
+        return OK;
+    }
+    //only enable for hardware decoder and soft_hevc decoder.
+    if(!(mComponentName.endsWith("hw-based") || mComponentName.endsWith("soft_hevc.sw-based")))
+        return OK;
+
+    OMX_CONFIG_VIDEO_MEDIA_TIME def;
+    InitOMXParams(&def);
+    def.nTime = time;
+    status_t err = mOMX->setConfig(
+            mNode, (OMX_INDEXTYPE)OMX_IndexConfigVideoMediaTime,
+            &def, sizeof(def));
+
+    if (err != OK) {
+        ALOGE("codec does not support set media time %lld (err %d)",time, err);
+    }
+    return OK;
 }
 
 static OMX_AUDIO_AMRBANDMODETYPE pickModeFromBitRate(
@@ -3060,6 +3394,7 @@ status_t ACodec::setupRawAudioFormat(
     pcmParams.bInterleaved = OMX_TRUE;
     pcmParams.nSamplingRate = sampleRate;
     pcmParams.ePCMMode = OMX_AUDIO_PCMModeLinear;
+    pcmParams.eEndian = eEndian;
 
     if (getOMXChannelMapping(numChannels, pcmParams.eChannelMapping) != OK) {
         return OMX_ErrorNone;
@@ -3250,6 +3585,15 @@ static const struct VideoCodingMapEntry {
     { MEDIA_MIMETYPE_VIDEO_MPEG2, OMX_VIDEO_CodingMPEG2 },
     { MEDIA_MIMETYPE_VIDEO_VP8, OMX_VIDEO_CodingVP8 },
     { MEDIA_MIMETYPE_VIDEO_VP9, OMX_VIDEO_CodingVP9 },
+    { MEDIA_MIMETYPE_VIDEO_WMV, OMX_VIDEO_CodingWMV },
+    { MEDIA_MIMETYPE_VIDEO_WMV9, (OMX_VIDEO_CODINGTYPE)OMX_VIDEO_CodingWMV9 },
+    { MEDIA_MIMETYPE_VIDEO_REAL, OMX_VIDEO_CodingRV },
+    { MEDIA_MIMETYPE_VIDEO_SORENSON, (OMX_VIDEO_CODINGTYPE)OMX_VIDEO_SORENSON263 },
+    { MEDIA_MIMETYPE_VIDEO_MJPEG, OMX_VIDEO_CodingMJPEG },
+    { MEDIA_MIMETYPE_VIDEO_DIV3, (OMX_VIDEO_CODINGTYPE)OMX_VIDEO_CodingDIV3 },
+    { MEDIA_MIMETYPE_VIDEO_DIV4, (OMX_VIDEO_CODINGTYPE)OMX_VIDEO_CodingDIV4 },
+    { MEDIA_MIMETYPE_VIDEO_DIVX, (OMX_VIDEO_CODINGTYPE)OMX_VIDEO_CodingDIVX },
+    { MEDIA_MIMETYPE_VIDEO_XVID, (OMX_VIDEO_CODINGTYPE)OMX_VIDEO_CodingXVID },
     { MEDIA_MIMETYPE_VIDEO_DOLBY_VISION, OMX_VIDEO_CodingDolbyVision },
 };
 
@@ -3306,6 +3650,26 @@ status_t ACodec::setPortBufferNum(OMX_U32 portIndex, int bufferNum) {
             portIndex == kPortIndexInput ? "input" : "output", bufferNum);
     }
     return OK;
+}
+
+status_t ACodec::setupWMVDecoderParameters(const sp<AMessage> &msg) {
+    status_t err;
+    OMX_VIDEO_PARAM_WMVTYPE sPara;
+    OMX_INIT_STRUCT(&sPara, OMX_VIDEO_PARAM_WMVTYPE);
+    int32_t subType = 0;
+    if (msg->findInt32("sub-format", &subType))
+        sPara.eFormat = (OMX_VIDEO_WMVFORMATTYPE)subType;
+    else
+        sPara.eFormat = OMX_VIDEO_WMVFormat9;
+
+    ALOGI("sPara.eFormat=%u",sPara.eFormat);
+    err = mOMX->setParameter(
+        mNode, OMX_IndexParamVideoWmv, &sPara, sizeof(sPara));
+    if (err != OK) {
+        ALOGE("SET OMX_IndexParamVideoWmv ERROR");
+        return err;
+    }
+    return err;
 }
 
 status_t ACodec::setupVideoDecoder(
@@ -3409,6 +3773,14 @@ status_t ACodec::setupVideoDecoder(
             width, height, haveNativeWindow | usingSwRenderer, msg, outputFormat);
     if (err == ERROR_UNSUPPORTED) { // support is optional
         err = OK;
+    }
+
+    if (err != OK) {
+        return err;
+    }
+
+    if(compressionFormat == OMX_VIDEO_CodingWMV9 || compressionFormat == OMX_VIDEO_CodingWMV){
+        err = setupWMVDecoderParameters(msg);
     }
 
     if (err != OK) {
@@ -3612,6 +3984,7 @@ status_t ACodec::setColorAspectsForVideoEncoder(
         ALOGW_IF(triesLeft == 0, "[%s] Codec repeatedly changed requested ColorAspects.",
                 mComponentName.c_str());
     }
+
     return OK;
 }
 
@@ -4798,6 +5171,7 @@ bool ACodec::describeDefaultColorFormat(DescribeColorFormat2Params &params) {
         fmt != OMX_COLOR_FormatYUV420PackedPlanar &&
         fmt != OMX_COLOR_FormatYUV420SemiPlanar &&
         fmt != OMX_COLOR_FormatYUV420PackedSemiPlanar &&
+        fmt != OMX_COLOR_FormatYUV422SemiPlanar &&
         fmt != (OMX_COLOR_FORMATTYPE)HAL_PIXEL_FORMAT_YV12) {
         ALOGW("do not know color format 0x%x = %d", fmt, fmt);
         return false;
@@ -5265,6 +5639,41 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
                     notify->setInt32("sample-rate", params.nSampleRate);
                     break;
                 }
+                case OMX_AUDIO_CodingAPE:
+                {
+                    OMX_AUDIO_PARAM_APETYPE params;
+                    InitOMXParams(&params);
+                    params.nPortIndex = portIndex;
+
+                    err = mOMX->getParameter(
+                            mNode, OMX_IndexParamAudioApe, &params, sizeof(params));
+                    if (err != OK) {
+                        return err;
+                    }
+
+                    notify->setString("mime", MEDIA_MIMETYPE_AUDIO_APE);
+                    notify->setInt32("channel-count", params.nChannels);
+                    notify->setInt32("sample-rate", params.nSampleRate);
+                    break;
+                }
+
+                case OMX_AUDIO_CodingRA:
+                {
+                    OMX_AUDIO_PARAM_RATYPE params;
+                    InitOMXParams(&params);
+                    params.nPortIndex = portIndex;
+
+                    err = mOMX->getParameter(
+                            mNode, OMX_IndexParamAudioRa, &params, sizeof(params));
+                    if (err != OK) {
+                        return err;
+                    }
+
+                    notify->setString("mime", MEDIA_MIMETYPE_AUDIO_REAL);
+                    notify->setInt32("channel-count", params.nChannels);
+                    notify->setInt32("sample-rate", params.nSamplingRate);
+                    break;
+                }
 
                 case OMX_AUDIO_CodingMP3:
                 {
@@ -5399,6 +5808,23 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
                     }
 
                     notify->setString("mime", MEDIA_MIMETYPE_AUDIO_MSGSM);
+                    notify->setInt32("channel-count", params.nChannels);
+                    notify->setInt32("sample-rate", params.nSamplingRate);
+                    break;
+                }
+                case OMX_AUDIO_CodingWMA:
+                {
+                    OMX_AUDIO_PARAM_WMATYPE params;
+                    InitOMXParams(&params);
+                    params.nPortIndex = portIndex;
+
+                    err = mOMX->getParameter(
+                                mNode, OMX_IndexParamAudioWma, &params, sizeof(params));
+                    if (err != OK) {
+                        return err;
+                    }
+
+                    notify->setString("mime", MEDIA_MIMETYPE_AUDIO_WMA);
                     notify->setInt32("channel-count", params.nChannels);
                     notify->setInt32("sample-rate", params.nSamplingRate);
                     break;
@@ -5558,6 +5984,142 @@ void ACodec::signalError(OMX_ERRORTYPE error, status_t internalError) {
     notify->setInt32("err", internalError);
     notify->setInt32("actionCode", ACTION_CODE_FATAL); // could translate from OMX error.
     notify->post();
+}
+void ACodec::cleanCropContent(
+    uint32_t nFrameWidth,
+    uint32_t nFrameHeight,
+    OMX_CONFIG_RECTTYPE sRectIn,
+    void * base,
+    PixelFormat eColorFormat)
+{
+    if(strncmp(mComponentName.c_str(), "OMX.Freescale.std.video_decoder", 31))
+        return;
+
+    uint32_t y_length = nFrameWidth * nFrameHeight;
+
+    ALOGV("color format is %x" ,eColorFormat );
+
+    switch(eColorFormat ){
+        case HAL_PIXEL_FORMAT_YCbCr_420_SP:
+        {
+            if(nFrameWidth > sRectIn.nLeft + sRectIn.nWidth){
+                for(uint32_t i = 0; i < sRectIn.nTop + sRectIn.nHeight ; i++){
+                    uint32_t crop_start_y = nFrameWidth * i + sRectIn.nLeft + sRectIn.nWidth;
+                    uint32_t crop_len_y = nFrameWidth - (sRectIn.nLeft + sRectIn.nWidth);
+                    memset((uint8_t*)base + crop_start_y , 0x10, crop_len_y);
+                }
+                for(uint32_t i = 0; i < (sRectIn.nTop + sRectIn.nHeight)/2 ; i++){
+                    uint32_t crop_start_uv = nFrameWidth * i + sRectIn.nLeft + sRectIn.nWidth;
+                    uint32_t crop_len_uv = nFrameWidth - (sRectIn.nLeft + sRectIn.nWidth);
+                    memset((uint8_t*)base + y_length + crop_start_uv , 0x80, crop_len_uv);
+                }
+            }
+            if(nFrameHeight > sRectIn.nTop + sRectIn.nHeight){
+                uint32_t crop_start_y = (sRectIn.nTop + sRectIn.nHeight) * nFrameWidth;
+                uint32_t crop_start_uv = y_length + crop_start_y/2;
+                memset((uint8_t*)base + crop_start_y , 0x10, y_length - crop_start_y);
+                memset((uint8_t*)base + crop_start_uv, 0x80, (y_length - crop_start_y)/2);
+            }
+            break;
+        }
+        case HAL_PIXEL_FORMAT_YCbCr_420_P:
+        {
+            if(nFrameWidth > sRectIn.nLeft + sRectIn.nWidth){
+                for(uint32_t i = 0; i < sRectIn.nTop + sRectIn.nHeight ; i++){
+                    uint32_t crop_start_y = nFrameWidth * i + sRectIn.nLeft + sRectIn.nWidth;
+                    uint32_t crop_len_y = nFrameWidth - (sRectIn.nLeft + sRectIn.nWidth);
+                    memset((uint8_t*)base + crop_start_y , 0x10, crop_len_y);
+                }
+                for(OMX_U32 i = 0; i < (sRectIn.nTop + sRectIn.nHeight)/ 2 ; i++){
+                    OMX_U32 crop_start_uv = (nFrameWidth * i + sRectIn.nLeft + sRectIn.nWidth ) / 2;
+                    OMX_U32 crop_len_uv = (nFrameWidth - (sRectIn.nLeft + sRectIn.nWidth) ) / 2;
+                    memset((uint8_t*)base + y_length + crop_start_uv , 0x80, crop_len_uv);
+                    memset((uint8_t*)base + y_length /4 * 5 + crop_start_uv , 0x80, crop_len_uv);
+                }
+            }
+            if(nFrameHeight > sRectIn.nTop + sRectIn.nHeight){
+                uint32_t crop_start_y = (sRectIn.nTop + sRectIn.nHeight) * nFrameWidth;
+                uint32_t crop_start_u = y_length + crop_start_y/4;
+                uint32_t crop_start_v = y_length / 4 * 5 + crop_start_y/4;
+                memset((uint8_t*)base + crop_start_y , 0x10, y_length - crop_start_y);
+                memset((uint8_t*)base + crop_start_u, 0x80, (y_length - crop_start_y)/4);
+                memset((uint8_t*)base + crop_start_v, 0x80, (y_length - crop_start_y)/4);
+            }
+            break;
+        }
+
+        case HAL_PIXEL_FORMAT_RGB_565:
+        {
+            if(nFrameWidth > sRectIn.nLeft + sRectIn.nWidth){
+                for(uint32_t i = 0; i < sRectIn.nTop + sRectIn.nHeight ; i++){
+                    uint32_t crop_start = (nFrameWidth * i + sRectIn.nLeft + sRectIn.nWidth) * 2;
+                    uint32_t crop_len = (nFrameWidth - (sRectIn.nLeft + sRectIn.nWidth)) * 2;
+                    memset((uint8_t*)base + crop_start , 0, crop_len);
+                }
+            }
+            if(nFrameHeight > sRectIn.nTop + sRectIn.nHeight){
+                uint32_t crop_start = ((sRectIn.nTop + sRectIn.nHeight) * nFrameWidth) * 2;
+                memset((uint8_t*)base + crop_start , 0, y_length *2 - crop_start);
+            }
+            break;
+        }
+
+        case HAL_PIXEL_FORMAT_YCbCr_422_P:
+        {
+            if(nFrameWidth > sRectIn.nLeft + sRectIn.nWidth){
+                for(uint32_t i = 0; i < sRectIn.nTop + sRectIn.nHeight ; i++){
+                    uint32_t crop_start_y = nFrameWidth * i + sRectIn.nLeft + sRectIn.nWidth;
+                    uint32_t crop_len_y = nFrameWidth - (sRectIn.nLeft + sRectIn.nWidth);
+                    memset((uint8_t*)base + crop_start_y , 0x10, crop_len_y);
+                }
+                for(uint32_t i = 0; i < (sRectIn.nTop + sRectIn.nHeight) ; i++){
+                    uint32_t crop_start_uv = (nFrameWidth * i + sRectIn.nLeft + sRectIn.nWidth ) / 2;
+                    uint32_t crop_len_uv = (nFrameWidth - (sRectIn.nLeft + sRectIn.nWidth) ) / 2;
+                    memset((uint8_t*)base + y_length + crop_start_uv , 0x80, crop_len_uv);
+                    memset((uint8_t*)base + y_length /2 * 3 + crop_start_uv , 0x80, crop_len_uv);
+                }
+            }
+            if(nFrameHeight > sRectIn.nTop + sRectIn.nHeight){
+                uint32_t crop_start_y = (sRectIn.nTop + sRectIn.nHeight) * nFrameWidth;
+                uint32_t crop_start_u = y_length + crop_start_y/2;
+                uint32_t crop_start_v = y_length / 2 * 3 + crop_start_y/2;
+                memset((uint8_t*)base + crop_start_y , 0x10, y_length - crop_start_y);
+                memset((uint8_t*)base + crop_start_u, 0x80, (y_length - crop_start_y)/2);
+                memset((uint8_t*)base + crop_start_v, 0x80, (y_length - crop_start_y)/2);
+            }
+            break;
+        }
+
+        case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+        {
+            if(nFrameWidth > sRectIn.nLeft + sRectIn.nWidth){
+                for(uint32_t i = 0; i < sRectIn.nTop + sRectIn.nHeight ; i++){
+                    uint32_t crop_start_y = nFrameWidth * i + sRectIn.nLeft + sRectIn.nWidth;
+                    uint32_t crop_len_y = nFrameWidth - (sRectIn.nLeft + sRectIn.nWidth);
+                    memset((uint8_t*)base + crop_start_y , 0x10, crop_len_y);
+                }
+                for(uint32_t i = 0; i < (sRectIn.nTop + sRectIn.nHeight); i++){
+                    uint32_t crop_start_uv = nFrameWidth * i + sRectIn.nLeft + sRectIn.nWidth;
+                    uint32_t crop_len_uv = nFrameWidth - (sRectIn.nLeft + sRectIn.nWidth);
+                    memset((uint8_t*)base + y_length + crop_start_uv , 0x80, crop_len_uv);
+                }
+            }
+            if(nFrameHeight > sRectIn.nTop + sRectIn.nHeight){
+                uint32_t crop_start_y = (sRectIn.nTop + sRectIn.nHeight) * nFrameWidth;
+                uint32_t crop_start_uv = y_length + crop_start_y;
+                memset((uint8_t*)base + crop_start_y , 0x10, y_length - crop_start_y);
+                memset((uint8_t*)base + crop_start_uv, 0x80, y_length - crop_start_y);
+            }
+            break;
+        }
+
+        default:
+            ALOGE("Not supported color format %d by surface!", eColorFormat);
+            break;
+    }
+
+    return;
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6025,6 +6587,11 @@ void ACodec::BaseState::onInputBufferFilled(const sp<AMessage> &msg) {
                     flags |= OMX_BUFFERFLAG_EOS;
                 }
 
+                if (mCodec->mSetStartTime && !(flags & OMX_BUFFERFLAG_CODECCONFIG)){
+                    flags |= OMX_BUFFERFLAG_STARTTIME;
+                    mCodec->mSetStartTime = false;
+                }
+
                 if (buffer != info->mCodecData) {
                     ALOGV("[%s] Needs to copy input data for buffer %u. (%p != %p)",
                          mCodec->mComponentName.c_str(),
@@ -6410,6 +6977,7 @@ void ACodec::BaseState::onOutputBufferDrained(const sp<AMessage> &msg) {
     if (msg->findRect("crop", &crop.left, &crop.top, &crop.right, &crop.bottom)
             && memcmp(&crop, &mCodec->mLastNativeWindowCrop, sizeof(crop)) != 0) {
         mCodec->mLastNativeWindowCrop = crop;
+        mCodec->mOutCrop = crop;
         status_t err = native_window_set_crop(mCodec->mNativeWindow.get(), &crop);
         ALOGW_IF(err != NO_ERROR, "failed to set crop: %d", err);
     }
@@ -6445,6 +7013,37 @@ void ACodec::BaseState::onOutputBufferDrained(const sp<AMessage> &msg) {
                 ALOGV("using buffer PTS of %lld", (long long)timestampNs);
                 timestampNs *= 1000;
             }
+        }
+
+        if((mCodec->mFrameCleanCrop++ <= 8)
+            && (info->mGraphicBuffer != NULL)
+            && (mCodec->mOutCrop.right > 0 && mCodec->mOutCrop.bottom > 0))
+        {
+            uint32_t w = info->mGraphicBuffer->getStride();
+            uint32_t h = info->mGraphicBuffer->getHeight();
+
+            if(w > (uint32_t)mCodec->mOutCrop.right || h > (uint32_t)mCodec->mOutCrop.bottom){
+                //ALOGI("onOutputBufferDrained clean crop content w %d, h %d, crop %d/%d", w, h, mCodec->mOutCrop.right, mCodec->mOutCrop.bottom);
+
+                void *vaddr = NULL;
+                if(!info->mGraphicBuffer->lock(GRALLOC_USAGE_SW_WRITE_OFTEN, &vaddr)){
+                    if(vaddr != NULL){
+                        uint32_t format = info->mGraphicBuffer->getPixelFormat();
+
+                        OMX_CONFIG_RECTTYPE rect;
+                        rect.nLeft = mCodec->mOutCrop.left;
+                        rect.nTop = mCodec->mOutCrop.top;
+                        rect.nWidth = mCodec->mOutCrop.right - mCodec->mOutCrop.left;
+                        rect.nHeight = mCodec->mOutCrop.bottom - mCodec->mOutCrop.top;
+
+                        mCodec->cleanCropContent(w, h, rect, vaddr, format);
+                    }
+                    info->mGraphicBuffer->unlock();
+                }
+                else
+                    ALOGE("graphic buffer lock fail!");
+            }
+
         }
 
         status_t err;
@@ -6691,6 +7290,9 @@ bool ACodec::UninitializedState::onAllocateComponent(const sp<AMessage> &msg) {
 
         node = 0;
     }
+
+    if(isForceUseGoogleAACCodec)
+        isForceUseGoogleAACCodec = false;
 
     if (node == 0) {
         if (!mime.empty()) {
@@ -7589,6 +8191,15 @@ status_t ACodec::setParameters(const sp<AMessage> &params) {
         }
     }
 
+    int64_t mediaTime;
+    if (params->findInt64("media-time", &mediaTime)) {
+        status_t err = setMediaTime(mediaTime);
+        if (err != OK) {
+            ALOGE("Failed to set parameter 'media-time' (err %d)", err);
+            return err;
+        }
+    }
+
     int32_t intraRefreshPeriod = 0;
     if (params->findInt32("intra-refresh-period", &intraRefreshPeriod)
             && intraRefreshPeriod > 0) {
@@ -8102,6 +8713,8 @@ void ACodec::FlushingState::changeStateIfWeOwnAllBuffers() {
 
         mCodec->mPortEOS[kPortIndexInput] =
             mCodec->mPortEOS[kPortIndexOutput] = false;
+
+        mCodec->mSetStartTime = true;
 
         mCodec->mInputEOSResult = OK;
 

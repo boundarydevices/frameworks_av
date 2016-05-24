@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "NuPlayerDecoder"
 #include <utils/Log.h>
@@ -286,6 +286,10 @@ void NuPlayer::Decoder::onConfigure(const sp<AMessage> &format) {
     mIsSecure = secure;
 
     mCodec->getName(&mComponentName);
+
+    if (mComponentName.startsWith("OMX.Freescale.std.video_decoder") && mComponentName.endsWith("hw-based")){
+        format->setInt32("color-format", 21);//OMX_COLOR_FormatYUV420SemiPlanar
+    }
 
     status_t err;
     if (mSurface != NULL) {
@@ -843,7 +847,7 @@ status_t NuPlayer::Decoder::fetchInputData(sp<AMessage> &reply) {
         }
     } while (dropAccessUnit);
 
-    // ALOGV("returned a valid buffer of %s data", mIsAudio ? "mIsAudio" : "video");
+    // ALOGV("returned a valid buffer of %s data", mIsAudio ? "audio" : "video");
 #if 0
     int64_t mediaTimeUs;
     CHECK(accessUnit->meta()->findInt64("timeUs", &mediaTimeUs));
@@ -1125,7 +1129,14 @@ void NuPlayer::Decoder::rememberCodecSpecificData(const sp<AMessage> &format) {
     if (format == NULL) {
         return;
     }
+
+    //freescale video decoder will keep codec data, so do not need to submit again
+    if (mComponentName.startsWith("OMX.Freescale.std.video_decoder")){
+        return;
+    }
+
     mCSDsForCurrentFormat.clear();
+
     for (int32_t i = 0; ; ++i) {
         AString tag = "csd-";
         tag.append(i);

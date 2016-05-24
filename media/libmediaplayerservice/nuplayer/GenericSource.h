@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 #ifndef GENERIC_SOURCE_H_
 
 #define GENERIC_SOURCE_H_
@@ -235,6 +235,12 @@ private:
 
     sp<ALooper> mLooper;
     sp<ALooper> mBufferingMonitorLooper;
+
+    enum {
+    TextTrackType_3GPP = 0,
+    TextTrackType_SRT,
+    };
+    int32_t mTextTrackType;
 
     void resetDataSource();
 

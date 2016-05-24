@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/* Copyright (C) 2013-2016 Freescale Semiconductor, Inc.*/
+/* Copyright (C) 2013-2016 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "NuPlayer"
 #include <utils/Log.h>
@@ -181,6 +181,7 @@ NuPlayer::NuPlayer(pid_t pid)
       mScanSourcesGeneration(0),
       mPollDurationGeneration(0),
       mTimedTextGeneration(0),
+      mSetVideoTimeGeneration(0),
       mFlushingAudio(NONE),
       mFlushingVideo(NONE),
       mResumePending(false),
@@ -1073,7 +1074,13 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                         finishFlushIfPossible();  // Should not occur.
                         break;                    // Finish anyways.
                 }
-                notifyListener(MEDIA_ERROR, MEDIA_ERROR_UNKNOWN, err);
+
+                if(mVideoDecoder != NULL && audio){
+                    notifyListener(MEDIA_INFO, MEDIA_INFO_UNKNOWN, err);
+                    ALOGE("do not send out media error if audio is not supported");
+                }else{
+                    notifyListener(MEDIA_ERROR, MEDIA_ERROR_UNKNOWN, err);
+                }
             } else {
                 ALOGV("Unhandled decoder notification %d '%c%c%c%c'.",
                       what,
@@ -1148,6 +1155,8 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                 notifyListener(MEDIA_INFO, MEDIA_INFO_RENDERING_START, 0);
             } else if (what == Renderer::kWhatMediaRenderingStart) {
                 ALOGV("media rendering started");
+                if(mVideoDecoder != NULL)
+                    scheduleSetVideoDecoderTime();
                 notifyListener(MEDIA_STARTED, 0, 0);
             } else if (what == Renderer::kWhatAudioTearDown) {
                 int32_t reason;
@@ -1256,6 +1265,26 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
             break;
         }
 
+        case kWhatSetTime:
+        {
+            int64_t ts = 0;
+            int32_t generation;
+            CHECK(msg->findInt32("generation", &generation));
+
+            if (generation != mSetVideoTimeGeneration) {
+                break;
+            }
+
+            sp<AMessage> params = new AMessage();
+            if(OK == mRenderer->getCurrentPosition(&ts)){
+                params->setInt64("media-time", ts);
+                mVideoDecoder->setParameters(params);
+            }
+
+            msg->post(1000000ll);  // poll again in a second.
+            break;
+        }
+
         default:
             TRESPASS();
             break;
@@ -1283,6 +1312,7 @@ void NuPlayer::onResume() {
     } else {
         ALOGW("resume called when renderer is gone or not set");
     }
+    scheduleSetVideoDecoderTime();
 }
 
 status_t NuPlayer::onInstantiateSecureDecoders() {
@@ -1391,7 +1421,9 @@ void NuPlayer::onStart(int64_t startPositionUs) {
     if (mAudioDecoder != NULL) {
         mAudioDecoder->setRenderer(mRenderer);
     }
-
+    if(mVideoDecoder != NULL){
+        scheduleSetVideoDecoderTime();
+    }
     postScanSources();
 }
 
@@ -1410,6 +1442,7 @@ void NuPlayer::onPause() {
     } else {
         ALOGW("pause called when renderer is gone or not set");
     }
+    cancelSetVideoDecoderTime();
 }
 
 bool NuPlayer::audioDecoderStillNeeded() {
@@ -2053,7 +2086,7 @@ void NuPlayer::performReset() {
             driver->notifyResetComplete();
         }
     }
-
+    cancelSetVideoDecoderTime();
     mStarted = false;
     mPrepared = false;
     mResetting = false;
@@ -2425,11 +2458,15 @@ void NuPlayer::sendTimedTextData(const sp<ABuffer> &buffer) {
     const void *data;
     size_t size = 0;
     int64_t timeUs;
-    int32_t flag = TextDescriptions::IN_BAND_TEXT_3GPP;
-
+    int32_t flag = 0;
+    bool srt = false;
     AString mime;
     CHECK(buffer->meta()->findString("mime", &mime));
-    CHECK(strcasecmp(mime.c_str(), MEDIA_MIMETYPE_TEXT_3GPP) == 0);
+
+    //if mime typs is srt, use srt parsing method
+    if(!strcasecmp(mime.c_str(), MEDIA_MIMETYPE_TEXT_SRT)){
+        srt = true;
+    }
 
     data = buffer->data();
     size = buffer->size();
@@ -2443,6 +2480,12 @@ void NuPlayer::sendTimedTextData(const sp<ABuffer> &buffer) {
         } else {
             flag |= TextDescriptions::LOCAL_DESCRIPTIONS;
         }
+
+        if(srt)
+            flag |= TextDescriptions::OUT_OF_BAND_TEXT_SRT;
+        else
+            flag |= TextDescriptions::IN_BAND_TEXT_3GPP;
+
         TextDescriptions::getParcelOfDescriptions(
                 (const uint8_t *)data, size, flag, timeUs / 1000, &parcel);
     }
@@ -2453,6 +2496,16 @@ void NuPlayer::sendTimedTextData(const sp<ABuffer> &buffer) {
         notifyListener(MEDIA_TIMED_TEXT, 0, 0);
     }
 }
+
+void NuPlayer::scheduleSetVideoDecoderTime() {
+    sp<AMessage> msg = new AMessage(kWhatSetTime, this);
+    msg->setInt32("generation", mSetVideoTimeGeneration);
+    msg->post();
+}
+void NuPlayer::cancelSetVideoDecoderTime() {
+    ++mSetVideoTimeGeneration;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 sp<AMessage> NuPlayer::Source::getFormat(bool audio) {
