@@ -38,6 +38,7 @@ struct MediaSource;
 class MediaBuffer;
 struct NuCachedSource2;
 class WVMExtractor;
+class IMediaExtractor;
 
 struct NuPlayer::GenericSource : public NuPlayer::Source {
     GenericSource(const sp<AMessage> &notify, bool uidValid, uid_t uid);
@@ -234,6 +235,7 @@ private:
     mutable Mutex mDisconnectLock;
 
     sp<ALooper> mLooper;
+    sp<IMediaExtractor> mExtractor;
     sp<ALooper> mBufferingMonitorLooper;
 
     enum {

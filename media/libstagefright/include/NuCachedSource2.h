@@ -70,6 +70,8 @@ struct NuCachedSource2 : public DataSource {
             String8 *cacheConfig,
             bool *disconnectAtHighwatermark);
 
+    void updateCacheParamsFromString(const char *s);
+
 protected:
     virtual ~NuCachedSource2();
 
@@ -142,7 +144,6 @@ private:
             bool ignoreLowWaterThreshold = false, bool force = false);
 
     void updateCacheParamsFromSystemProperty();
-    void updateCacheParamsFromString(const char *s);
 
     DISALLOW_EVIL_CONSTRUCTORS(NuCachedSource2);
 };

@@ -1075,7 +1075,7 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                         break;                    // Finish anyways.
                 }
 
-                if(mVideoDecoder != NULL && audio){
+                if(mSurface != NULL && audio){
                     notifyListener(MEDIA_INFO, MEDIA_INFO_UNKNOWN, err);
                     ALOGE("do not send out media error if audio is not supported");
                 }else{
@@ -1211,6 +1211,13 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
 
             ALOGV("kWhatSeek seekTimeUs=%lld us, needNotify=%d",
                     (long long)seekTimeUs, needNotify);
+
+            if(!(mSourceFlags & Source::FLAG_CAN_SEEK) && (seekTimeUs > 0)){
+                if (needNotify)
+                    notifyDriverSeekComplete();
+                ALOGW("Unseekable stream!");
+                break;
+            }
 
             if (!mStarted) {
                 // Seek before the player is started. In order to preview video,

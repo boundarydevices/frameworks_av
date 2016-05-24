@@ -185,6 +185,8 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
         return UNKNOWN_ERROR;
     }
 
+    mExtractor = extractor;
+
     if (extractor->getDrmFlag()) {
         checkDrmStatus(mDataSource);
     }
@@ -424,6 +426,21 @@ void NuPlayer::GenericSource::onPrepareAsync() {
     // init extractor from data source
     status_t err = initFromDataSource();
 
+    off64_t size;
+    if(mCachedSource != NULL && mCachedSource->getSize(&size) == OK && mDurationUs > 0){
+        ALOGV("file size is %lld, duration is %lld", size, mDurationUs);
+        int64_t bitrate = size * 8000000ll / mDurationUs;
+        // When bitrate is larger than 15Mbps, use calculated watermarks.
+        if(bitrate > 15 * 1024 * 1024){
+            size_t lowWaterMark = bitrate / 8 * (kLowWaterMarkUs / 1000000 + 3) ;
+            size_t highWaterMark = bitrate / 8 * (kHighWaterMarkUs / 1000000 + 3);
+            ALOGI("bitrate is %lld, set new cache watermark to %d - %d", bitrate, lowWaterMark, highWaterMark);
+            char s[30];
+            sprintf(s,"%zd/%zd/%d", lowWaterMark/1000, highWaterMark/1000, -1);
+            mCachedSource->updateCacheParamsFromString(s);
+        }
+    }
+
     if (err != OK) {
         ALOGE("Failed to init from data source!");
         notifyPreparedAndCleanup(err);
@@ -440,13 +457,23 @@ void NuPlayer::GenericSource::onPrepareAsync() {
         }
         notifyVideoSizeChanged(msg);
     }
-    notifyFlagsChanged(
+
+    uint32_t flags =
         (mIsSecure ? FLAG_SECURE : 0)
         | (mDecryptHandle != NULL ? FLAG_PROTECTED : 0)
-        | FLAG_CAN_PAUSE
-        | FLAG_CAN_SEEK_BACKWARD
-        | FLAG_CAN_SEEK_FORWARD
-        | FLAG_CAN_SEEK);
+        | FLAG_CAN_PAUSE ;
+
+    uint32_t extractor_flags = mExtractor->flags();
+    if(extractor_flags & MediaExtractor::CAN_SEEK)
+        flags |= FLAG_CAN_SEEK;
+    if(extractor_flags & MediaExtractor::CAN_SEEK_FORWARD)
+        flags |= FLAG_CAN_SEEK_FORWARD;
+    if(extractor_flags & MediaExtractor::CAN_SEEK_BACKWARD)
+        flags |= FLAG_CAN_SEEK_BACKWARD;
+
+    ALOGV("flags %x", flags);
+
+    notifyFlagsChanged(flags);
 
     if (mIsSecure) {
         // secure decoders must be instantiated before starting widevine source
@@ -665,7 +692,10 @@ void NuPlayer::GenericSource::onMessageReceived(const sp<AMessage> &msg) {
               timeUs = mVideoLastDequeueTimeUs;
           }
           readBuffer(trackType, timeUs, &actualTimeUs, formatChange);
-          readBuffer(counterpartType, -1, NULL, formatChange);
+          if(counterpartType == MEDIA_TRACK_TYPE_VIDEO)
+              readBuffer(counterpartType, -1, NULL, 0); //Don't invoke video format change if only switch audio track
+          else
+              readBuffer(counterpartType, -1, NULL, formatChange);
           ALOGV("timeUs %lld actualTimeUs %lld", (long long)timeUs, (long long)actualTimeUs);
 
           break;
@@ -1420,7 +1450,7 @@ void NuPlayer::GenericSource::readBuffer(
             break;
         case MEDIA_TRACK_TYPE_AUDIO:
             track = &mAudioTrack;
-            if (mIsWidevine) {
+            if (mIsStreaming) {
                 maxBuffers = 8;
             } else {
                 maxBuffers = 64;
@@ -1458,6 +1488,9 @@ void NuPlayer::GenericSource::readBuffer(
         options.setNonBlocking();
     }
 
+    int64_t videoSeekTimeResultUs = -1;
+    int64_t startUs = ALooper::GetNowUs();
+    int64_t nowUs = startUs;
     for (size_t numBuffers = 0; numBuffers < maxBuffers; ) {
         Vector<MediaBuffer *> mediaBuffers;
         status_t err = NO_ERROR;
@@ -1490,6 +1523,8 @@ void NuPlayer::GenericSource::readBuffer(
                 mBufferingMonitor->updateQueuedTime(true /* isAudio */, timeUs);
             } else if (trackType == MEDIA_TRACK_TYPE_VIDEO) {
                 mVideoTimeUs = timeUs;
+                if(seeking == true && numBuffers == 0)
+                    videoSeekTimeResultUs = timeUs; //save the first frame timestamp after seek in order to seek audio.
                 mBufferingMonitor->updateQueuedTime(false /* isAudio */, timeUs);
             }
 
@@ -1525,7 +1560,14 @@ void NuPlayer::GenericSource::readBuffer(
             track->mPackets->signalEOS(err);
             break;
         }
+        //quit from loop when reading too many audio buffer
+        nowUs = ALooper::GetNowUs();
+        if(nowUs - startUs > 250000LL)
+            break;
     }
+
+    if(videoSeekTimeResultUs > 0)
+        *actualTimeUs = videoSeekTimeResultUs;
 }
 
 void NuPlayer::GenericSource::queueDiscontinuityIfNeeded(
