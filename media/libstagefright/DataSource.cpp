@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "DataSource"
 
@@ -34,7 +35,7 @@
 #include "include/WVMExtractor.h"
 
 #include "matroska/MatroskaExtractor.h"
-
+#include "include/FslInspector.h"
 #include <media/IMediaHTTPConnection.h>
 #include <media/IMediaHTTPService.h>
 #include <media/stagefright/foundation/ADebug.h>
@@ -180,6 +181,7 @@ void DataSource::RegisterDefaultSniffers() {
         RegisterSniffer_l(SniffWVM);
     }
     RegisterSniffer_l(SniffMidi);
+    RegisterSniffer_l(SniffFSL);
 
     char value[PROPERTY_VALUE_MAX];
     if (property_get("drm.service.enabled", value, NULL)

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2015-2016 Freescale Semiconductor, Inc.*/
 #ifndef MEDIA_DEFS_H_
 
 #define MEDIA_DEFS_H_
@@ -67,6 +67,33 @@ extern const char *MEDIA_MIMETYPE_TEXT_VTT;
 extern const char *MEDIA_MIMETYPE_TEXT_CEA_608;
 extern const char *MEDIA_MIMETYPE_TEXT_CEA_708;
 extern const char *MEDIA_MIMETYPE_DATA_TIMED_ID3;
+
+//freescale added
+extern const char *MEDIA_MIMETYPE_CONTAINER_FLV;
+extern const char *MEDIA_MIMETYPE_CONTAINER_ASF;
+extern const char *MEDIA_MIMETYPE_CONTAINER_RMVB;
+
+extern const char *MEDIA_MIMETYPE_VIDEO_DIV3;
+extern const char *MEDIA_MIMETYPE_VIDEO_DIV4;
+extern const char *MEDIA_MIMETYPE_VIDEO_DIVX;
+
+extern const char *MEDIA_MIMETYPE_VIDEO_XVID;
+extern const char *MEDIA_MIMETYPE_VIDEO_WMV;
+extern const char *MEDIA_MIMETYPE_VIDEO_WMV9;
+
+extern const char *MEDIA_MIMETYPE_VIDEO_JPEG;
+extern const char *MEDIA_MIMETYPE_VIDEO_MJPEG;
+extern const char *MEDIA_MIMETYPE_VIDEO_REAL;
+extern const char *MEDIA_MIMETYPE_VIDEO_SORENSON;
+
+extern const char *MEDIA_MIMETYPE_AUDIO_WMA;
+extern const char *MEDIA_MIMETYPE_AUDIO_ADPCM;
+extern const char *MEDIA_MIMETYPE_AUDIO_REAL;
+extern const char *MEDIA_MIMETYPE_AUDIO_APE;
+
+extern const char *MEDIA_MIMETYPE_TEXT_SRT;
+extern const char *MEDIA_MIMETYPE_TEXT_SSA;
+extern const char *MEDIA_MIMETYPE_TEXT_ASS;
 
 // These are values exported to JAVA API that need to be in sync with
 // frameworks/base/media/java/android/media/AudioFormat.java. Unfortunately,

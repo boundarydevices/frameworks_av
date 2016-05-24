@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ *  Copyright (C) 2016 Freescale Semiconductor, Inc.
+ *  All Rights Reserved.
+ */
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "MediaExtractor"
@@ -34,6 +38,7 @@
 #include "include/MidiExtractor.h"
 
 #include "matroska/MatroskaExtractor.h"
+#include "include/FslExtractor.h"
 
 #include <binder/IServiceManager.h>
 #include <binder/MemoryDealer.h>
@@ -47,6 +52,7 @@
 #include <media/IMediaExtractorService.h>
 #include <cutils/properties.h>
 #include <utils/String8.h>
+#include <cutils/properties.h>
 #include <private/android_filesystem_config.h>
 
 
@@ -231,35 +237,74 @@ sp<MediaExtractor> MediaExtractor::CreateFromService(
             return NULL;
         }
     }
-
+    bool use_fsl = false;
+    int value;
     MediaExtractor *ret = NULL;
+    value = property_get_int32("media.fsl_codec.flag", 0);
+    if(value & 0x01)
+        use_fsl = true;
+
+    if(isDrm)
+        use_fsl = false;
+
     if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_MPEG4)
             || !strcasecmp(mime, "audio/mp4")) {
-        ret = new MPEG4Extractor(source);
+        if(use_fsl)
+            ret = new FslExtractor(source,mime);
+        else
+            ret = new MPEG4Extractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) {
-        ret = new MP3Extractor(source, meta);
+        if(use_fsl)
+            ret = new FslExtractor(source,mime);
+        else
+            ret = new MP3Extractor(source, meta);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AMR_NB)
             || !strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AMR_WB)) {
         ret = new AMRExtractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_FLAC)) {
-        ret = new FLACExtractor(source);
+        if(use_fsl)
+            ret = new FslExtractor(source,mime);
+        else
+            ret = new FLACExtractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_WAV)) {
         ret = new WAVExtractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_OGG)) {
         ret = new OggExtractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_MATROSKA)) {
-        ret = new MatroskaExtractor(source);
+        if(use_fsl)
+            ret = new FslExtractor(source,mime);
+        else
+            ret = new MatroskaExtractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_MPEG2TS)) {
-        ret = new MPEG2TSExtractor(source);
+        if(use_fsl)
+            ret = new FslExtractor(source,mime);
+        else
+            ret = new MPEG2TSExtractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_WVM) && getuid() == AID_MEDIA) {
         // Return now.  WVExtractor should not have the DrmFlag set in the block below.
         return new WVMExtractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC_ADTS)) {
-        ret = new AACExtractor(source, meta);
+        if(use_fsl)
+            ret = new FslExtractor(source,mime);
+        else
+            ret = new AACExtractor(source, meta);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_MPEG2PS)) {
-        ret = new MPEG2PSExtractor(source);
+        if(use_fsl)
+            ret = new FslExtractor(source,mime);
+        else
+            ret = new MPEG2PSExtractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MIDI)) {
         ret = new MidiExtractor(source);
+    } else if(!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_AVI)){
+        ret = new FslExtractor(source,mime);
+    } else if(!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_FLV)){
+        ret = new FslExtractor(source,mime);
+    } else if(!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_ASF)){
+        ret = new FslExtractor(source,mime);
+    } else if(!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_RMVB)){
+        ret = new FslExtractor(source,mime);
+    } else if(!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_APE)) {
+        ret = new FslExtractor(source,mime);
     }
 
     if (ret != NULL) {
