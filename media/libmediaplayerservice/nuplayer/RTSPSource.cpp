@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "RTSPSource"
 #include <utils/Log.h>
@@ -186,6 +186,45 @@ bool NuPlayer::RTSPSource::haveSufficientDataOnAllTracks() {
     return true;
 }
 
+bool NuPlayer::RTSPSource::haveSufficientDataOnTrack(bool audio) {
+
+    static const int64_t kMinDurationUs = 1000000ll;
+    status_t err;
+    int64_t durationUs;
+
+    int64_t mediaDurationUs = 0;
+    getDuration(&mediaDurationUs);
+
+    if(audio){
+        if (mAudioTrack != NULL && mAudioTrack->isFinished(mediaDurationUs) ) {
+            return true;
+        }
+        if (mAudioTrack != NULL
+                && (durationUs = mAudioTrack->getBufferedDurationUs(&err))
+                        < kMinDurationUs
+                && err == OK) {
+            ALOGV("audio track doesn't have enough data yet. (%.2f secs buffered)",
+                  durationUs / 1E6);
+            return false;
+        }
+    }
+    else{
+        if (mVideoTrack != NULL && mVideoTrack->isFinished(mediaDurationUs)) {
+            return true;
+        }
+        if (mVideoTrack != NULL
+                && (durationUs = mVideoTrack->getBufferedDurationUs(&err))
+                        < kMinDurationUs
+                && err == OK) {
+            ALOGV("video track doesn't have enough data yet. (%.2f secs buffered)",
+                  durationUs / 1E6);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 status_t NuPlayer::RTSPSource::dequeueAccessUnit(
         bool audio, sp<ABuffer> *accessUnit) {
     if (!stopBufferingIfNecessary()) {
@@ -225,7 +264,8 @@ status_t NuPlayer::RTSPSource::dequeueAccessUnit(
             if (!sourceNearEOS(!audio)) {
                 // We should not enter buffering mode
                 // if any of the sources already have detected EOS.
-                startBufferingIfNecessary();
+                if(!haveSufficientDataOnTrack(!audio))
+                    startBufferingIfNecessary();
             }
 
             return -EWOULDBLOCK;
