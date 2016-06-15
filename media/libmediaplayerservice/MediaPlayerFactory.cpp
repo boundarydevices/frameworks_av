@@ -15,6 +15,8 @@
 ** limitations under the License.
 */
 
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
+
 //#define LOG_NDEBUG 0
 #define LOG_TAG "MediaPlayerFactory"
 #include <utils/Log.h>
@@ -30,6 +32,9 @@
 
 #include "MediaPlayerFactory.h"
 
+#ifdef FSL_GM_PLAYER
+#include <media/OMXPlayer.h>
+#endif
 #include "TestPlayerStub.h"
 #include "nuplayer/NuPlayerDriver.h"
 
@@ -169,6 +174,38 @@ sp<MediaPlayerBase> MediaPlayerFactory::createPlayer(
  *                                                                           *
  *****************************************************************************/
 
+#ifdef FSL_GM_PLAYER
+
+class OMXPlayerFactory : public MediaPlayerFactory::IFactory {
+    public:
+        virtual float scoreFactory(const sp<IMediaPlayer>& /*client*/,
+                const char* url,
+                float curScore) {
+            static const float kOurScore = 1.0;
+
+            ALOGV("OMXPlayerFactory scoreFactory %s", url);
+
+            if (kOurScore <= curScore)
+                return 0.0;
+
+            URL_TYPE url_type;
+            OMXPlayerType *pType = new OMXPlayerType();
+            url_type = pType->IsSupportedUrl(url);
+            delete pType;
+            if(url_type == URL_SUPPORT)
+                return kOurScore;
+            else
+                return 0.0;
+        }
+
+        virtual sp<MediaPlayerBase> createPlayer(pid_t /*pid*/) {
+            ALOGV(" create OMXPlayer");
+            return new OMXPlayer();
+        }
+};
+
+#endif
+
 class NuPlayerFactory : public MediaPlayerFactory::IFactory {
   public:
     virtual float scoreFactory(const sp<IMediaPlayer>& /*client*/,
@@ -246,6 +283,9 @@ void MediaPlayerFactory::registerBuiltinFactories() {
     if (sInitComplete)
         return;
 
+#ifdef FSL_GM_PLAYER
+    registerFactory_l(new OMXPlayerFactory(), OMX_PLAYER);
+#endif
     registerFactory_l(new NuPlayerFactory(), NU_PLAYER);
     registerFactory_l(new TestPlayerFactory(), TEST_PLAYER);
 
