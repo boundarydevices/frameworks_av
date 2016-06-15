@@ -80,7 +80,7 @@ struct NuPlayer::Renderer : public AHandler {
             uint32_t flags,
             bool *isOffloaded);
     void closeAudioSink();
-
+    void enableSyncQueue(bool bEnabled);
     enum {
         kWhatEOS                      = 'eos ',
         kWhatFlushComplete            = 'fluC',
@@ -122,6 +122,7 @@ private:
         kWhatDisableOffloadAudio = 'noOA',
         kWhatEnableOffloadAudio  = 'enOA',
         kWhatSetVideoFrameRate   = 'sVFR',
+        kWhatEnableSyncQueue     = 'eSyQ',
     };
 
     struct QueueEntry {
@@ -205,7 +206,7 @@ private:
     bool mUseAudioCallback;
 
     sp<AWakeLock> mWakeLock;
-
+    int32_t mContinusDrop;
     status_t getCurrentPositionOnLooper(int64_t *mediaUs);
     status_t getCurrentPositionOnLooper(
             int64_t *mediaUs, int64_t nowUs, bool allowPastQueuedVideo = false);
@@ -277,7 +278,9 @@ private:
     void cancelAudioOffloadPauseTimeout();
 
     int64_t getDurationUsIfPlayedAtSampleRate(uint32_t numFrames);
+    void onEnableSyncQueue(int32_t enable);
 
+    bool isTooLate(int64_t ts, int64_t media);
     DISALLOW_EVIL_CONSTRUCTORS(Renderer);
 };
 

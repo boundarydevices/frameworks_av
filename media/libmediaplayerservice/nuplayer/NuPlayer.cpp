@@ -912,6 +912,11 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                 }
             }
 
+            #if 0
+            if(mAudioDecoder != NULL && mVideoDecoder != NULL)
+                mRenderer->enableSyncQueue(true);
+            #endif
+
             status_t err;
             if ((err = mSource->feedMoreTSData()) != OK) {
                 if (mAudioDecoder == NULL && mVideoDecoder == NULL) {
