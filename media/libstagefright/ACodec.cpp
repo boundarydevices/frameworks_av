@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2012-2016 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1052,6 +1053,11 @@ status_t ACodec::configureOutputBuffersFromNativeWindow(
     // 2. try to allocate two (2) additional buffers to reduce starvation from
     //    the consumer
     //    plus an extra buffer to account for incorrect minUndequeuedBufs
+
+    // XXX: Is this the right logic to use?  It's not clear to me what the OMX
+    // buffer counts refer to - how do they account for the renderer holding on
+    // to buffers?
+    *minUndequeuedBuffers = 0;
     for (OMX_U32 extraBuffers = 2 + 1; /* condition inside loop */; extraBuffers--) {
         OMX_U32 newBufferCount =
             def.nBufferCountMin + *minUndequeuedBuffers + extraBuffers;
@@ -1071,6 +1077,7 @@ status_t ACodec::configureOutputBuffersFromNativeWindow(
             return err;
         }
     }
+    *minUndequeuedBuffers = 0;
 
     err = native_window_set_buffer_count(
             mNativeWindow.get(), def.nBufferCountActual);
@@ -5013,6 +5020,16 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
                                     rect.nLeft + rect.nWidth, rect.nTop + rect.nHeight,
                                     videoDef->nFrameWidth, videoDef->nFrameHeight);
                             return BAD_VALUE;
+                        }
+
+                        if(rect.nHeight > 0
+                            && rect.nHeight < videoDef->nFrameHeight
+                            && !strncmp(mComponentName.c_str(), "OMX.Freescale.std.video_decoder", 31)
+                            && strstr(mComponentName.c_str(),"hw-based")){
+
+                            ALOGW("ACodec map vpu crop info: output crop: %d, frameH %d", rect.nHeight, videoDef->nFrameHeight);
+                            notify->setInt32("slice-height", videoDef->nFrameHeight);
+                            videoDef->nFrameHeight = rect.nHeight;
                         }
 
                         notify->setRect(
