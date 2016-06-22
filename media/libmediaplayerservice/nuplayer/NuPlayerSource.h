@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2013-2016 Freescale Semiconductor, Inc.*/
 #ifndef NUPLAYER_SOURCE_H_
 
 #define NUPLAYER_SOURCE_H_
@@ -110,6 +110,10 @@ struct NuPlayer::Source : public AHandler {
 
     virtual status_t setBuffers(bool /* audio */, Vector<MediaBuffer *> &/* buffers */) {
         return INVALID_OPERATION;
+    }
+
+    virtual bool isAVCReorderDisabled() const {
+        return false;
     }
 
     virtual bool isRealTime() const {
