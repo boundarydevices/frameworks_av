@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2013 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "NetworkSession"
 #include <utils/Log.h>
@@ -662,7 +662,7 @@ status_t ANetworkSession::Session::writeMore() {
         mSawSendFailure = true;
     }
 
-#if 0
+#if 1
     int numBytesQueued;
     int res = ioctl(mSocket, SIOCOUTQ, &numBytesQueued);
     if (res == 0 && numBytesQueued > 50 * 1024) {
