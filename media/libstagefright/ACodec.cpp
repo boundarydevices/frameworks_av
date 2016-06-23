@@ -2199,6 +2199,7 @@ status_t ACodec::configureCodec(
             int32_t maxOutputChannelCount;
             int32_t pcmLimiterEnable;
             drcParams_t drc;
+            int32_t streaming = 0;
             if (!msg->findInt32("is-adts", &isADTS)) {
                 isADTS = 0;
             }
@@ -2239,14 +2240,22 @@ status_t ACodec::configureCodec(
                 // value is unknown
                 drc.targetRefLevel = -1;
             }
+            if(!msg->findInt32("streaming", &streaming))
+                streaming = 0;
+
             if(isADIF)
                 err = setupAACADIFCodec(
                         encoder, numChannels, sampleRate, maxOutputChannelCount, drc, pcmLimiterEnable);
-            else
+            else{
                 err = setupAACCodec(
                         encoder, numChannels, sampleRate, bitRate, aacProfile,
                         isADTS != 0, sbrMode, maxOutputChannelCount, drc,
                         pcmLimiterEnable);
+                if(err == OK && !encoder && isADTS && streaming){
+                    OMX_DECODE_MODE mode = DEC_STREAM_MODE;
+                    mOMX->setParameter(mNode, OMX_IndexParamDecoderPlayMode, &mode, sizeof(OMX_DECODE_MODE));
+                }
+            }
 
         }
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AMR_NB)) {
@@ -3785,6 +3794,20 @@ status_t ACodec::setupVideoDecoder(
 
     if (err != OK) {
         return err;
+    }
+    int32_t streaming = 0;
+    if(msg->findInt32("streaming", &streaming)){
+        ALOGI("setupVideoDecoder streaming is %d" , streaming);
+        if(!strncmp(mComponentName.c_str(), "OMX.Freescale.std.video_decoder", 31)
+              && strstr(mComponentName.c_str(),"hw-based")
+              && streaming){
+            OMX_DECODER_CACHED_THR sThreshold;
+            OMX_INIT_STRUCT(&sThreshold, OMX_DECODER_CACHED_THR);
+            sThreshold.nPortIndex = 0;
+            sThreshold.nMaxDurationMsThreshold = 500; //500ms
+            sThreshold.nMaxBufCntThreshold = 7;
+            mOMX->setParameter(mNode, OMX_IndexParamDecoderCachedThreshold, &sThreshold, sizeof(sThreshold));
+        }
     }
 
     err = setHDRStaticInfoForVideoCodec(kPortIndexOutput, msg, outputFormat);

@@ -194,7 +194,8 @@ NuPlayer::NuPlayer(pid_t pid)
       mSourceStarted(false),
       mPaused(false),
       mPausedByClient(true),
-      mPausedForBuffering(false) {
+      mPausedForBuffering(false),
+      mStreaming(false) {
     clearFlushComplete();
 }
 
@@ -252,6 +253,7 @@ void NuPlayer::setDataSourceAsync(
     } else if (!strncasecmp(url, "rtsp://", 7)) {
         source = new RTSPSource(
                 notify, httpService, url, headers, mUIDValid, mUID);
+        mStreaming = true;
     } else if ((!strncasecmp(url, "http://", 7)
                 || !strncasecmp(url, "https://", 8))
                     && ((len >= 4 && !strcasecmp(".sdp", &url[len - 4]))
@@ -1706,6 +1708,7 @@ status_t NuPlayer::instantiateDecoder(
             }
         }
     }
+    format->setInt32("streaming", mStreaming?1:0);
     (*decoder)->init();
     (*decoder)->configure(format);
 
