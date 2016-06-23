@@ -1,5 +1,6 @@
 /*
  * Copyright 2014, The Android Open Source Project
+ * Copyright (C) 2015 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -674,7 +675,7 @@ status_t MediaCodecSource::feedEncoderInputBuffers() {
 
             // push decoding time for video, or drift time for audio
             if (mIsVideo) {
-                mDecodingTimeQueue.push_back(timeUs);
+                //mDecodingTimeQueue.push_back(timeUs);
             } else {
 #if DEBUG_DRIFT_TIME
                 if (mFirstSampleTimeUs < 0ll) {
@@ -885,9 +886,10 @@ void MediaCodecSource::onMessageReceived(const sp<AMessage> &msg) {
                         // this logic into MediaCodec.
                         decodingTimeUs = timeUs;
                     } else {
-                        CHECK(!mDecodingTimeQueue.empty());
-                        decodingTimeUs = *(mDecodingTimeQueue.begin());
-                        mDecodingTimeQueue.erase(mDecodingTimeQueue.begin());
+                      //  CHECK(!mDecodingTimeQueue.empty());
+                       // decodingTimeUs = *(mDecodingTimeQueue.begin());
+                       // mDecodingTimeQueue.erase(mDecodingTimeQueue.begin());
+                       decodingTimeUs = timeUs;
                     }
                     mbuf->meta_data()->setInt64(kKeyDecodingTime, decodingTimeUs);
 

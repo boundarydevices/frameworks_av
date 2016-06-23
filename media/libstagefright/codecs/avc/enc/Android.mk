@@ -101,7 +101,7 @@ LOCAL_STATIC_LIBRARIES := \
         libstagefright_avcenc
 
 LOCAL_SHARED_LIBRARIES := \
-        libstagefright_avc_common
+        libstagefright_avc_common liblog
 
 LOCAL_MODULE := libstagefright_h264enc_test
 
