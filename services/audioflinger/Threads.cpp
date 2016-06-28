@@ -4976,7 +4976,7 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::DirectOutputThread::prep
                 if(mpPreActiveTrack && (mpPreActiveTrack != mActiveTrack.get()) && mpPreActiveTrack->isStopping_1()) {
                     int cycle = 0;
                     size_t frameReady = mpPreActiveTrack->framesReady();
-                    ALOGI("activeTrack changed, cur %p, pre %p, pre frameReady %d",
+                    ALOGI("activeTrack changed, cur %p, pre %p, pre frameReady %zu",
                         mActiveTrack.get(), mpPreActiveTrack, frameReady);
 
                     while(frameReady) {
@@ -4996,7 +4996,7 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::DirectOutputThread::prep
                         frameReady = mpPreActiveTrack->framesReady();
                     }
 
-                    ALOGI("after drain pre active track, frameReady %d", mpPreActiveTrack->framesReady());
+                    ALOGI("after drain pre active track, frameReady %zu", mpPreActiveTrack->framesReady());
                 }
 
                 mpPreActiveTrack = mActiveTrack.get();

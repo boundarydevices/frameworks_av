@@ -183,7 +183,7 @@ void VideoFormats::ConvertDpyInfo2Resolution(DisplayInfo Dpy, ResolutionType& ty
      //if not found any matched config above, prefer 1280x720P30
      type = RESOLUTION_CEA;
      index = 5;
-     ALOGI("No matched found prefer type=%d index=%d", type, index);
+     ALOGI("No matched found prefer type=%d index=%zu", type, index);
      return;
 }
 
@@ -440,7 +440,7 @@ bool VideoFormats::parseFormatSpec(const char *spec) {
         success = GetConfiguration(
                 mNativeType, mNativeIndex, NULL, NULL, NULL, NULL);
     }
-    ALOGI("Getconfiguration type=%d, index=%d", mNativeType, mNativeIndex);
+    ALOGI("Getconfiguration type=%d, index=%zu", mNativeType, mNativeIndex);
     if (!success) {
         ALOGW("sink advertised an illegal native resolution, fortunately "
               "this value is ignored for the time being...");

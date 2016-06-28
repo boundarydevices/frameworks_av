@@ -27,6 +27,8 @@
 #include <OMX_Audio.h>
 #include <OMX_Implement.h>
 #include <cutils/properties.h>
+#include <inttypes.h>
+
 namespace android {
 #define MAX_USER_DATA_STRING_LENGTH 1024
 #define MAX_FRAME_BUFFER_LENGTH 10000000
@@ -130,7 +132,7 @@ status_t FslMediaSource::start(MetaData * /* params */)
 {
     mStarted = true;
     mExtractor->ActiveTrack(mSourceIndex);
-    ALOGD("source start track %d",mSourceIndex);
+    ALOGD("source start track %zu",mSourceIndex);
     return OK;
 }
 void FslMediaSource::clearPendingFrames() {
@@ -250,7 +252,7 @@ status_t FslMediaSource::read(
 
     mFrameSent++;
     //frame->meta_data()->findInt64(kKeyTime, &outTs);
-    ALOGV("FslMediaSource::read mSourceIndex=%d size=%d,time %lld",mSourceIndex,frame->size(),outTs);
+    ALOGV("FslMediaSource::read mSourceIndex=%zu size=%zu,time %" PRId64 "",mSourceIndex,frame->size(),outTs);
 
     if(!mIsAVC && !mIsHEVC){
         return OK;
@@ -274,7 +276,7 @@ status_t FslMediaSource::read(
         while(srcOffset + mNALLengthSize <= srcSize){
             size_t NALsize = U32_AT(srcPtr + srcOffset);
             if((uint64_t)NALsize + (uint64_t) srcOffset >= 0xffffffff){
-                ALOGE("invalid NALsize 0x%x", NALsize);
+                ALOGE("invalid NALsize 0x%zu", NALsize);
                 break;
             }
 
@@ -292,7 +294,7 @@ status_t FslMediaSource::read(
 
             return ERROR_MALFORMED;
         }
-        ALOGV("FslMediaSource::read 2 size=%d",srcSize);
+        ALOGV("FslMediaSource::read 2 size=%zu",srcSize);
 
         return OK;
     }
@@ -332,7 +334,7 @@ status_t FslMediaSource::read(
                 memcpy(&dstPtr[dstOffset + 4],
                        &srcPtr[srcOffset + mNALLengthSize],
                        NALsize);
-                ALOGV("FslMediaSource::read 3 copy %d",4+NALsize);
+                ALOGV("FslMediaSource::read 3 copy %zu",4+NALsize);
             }
 
             dstOffset += 4;  // 0x00 00 00 01
@@ -365,7 +367,7 @@ status_t FslMediaSource::read(
             buffer->meta_data()->setInt32(kKeyIsSyncFrame, isSync);
 
             dstPtr = (uint8_t *)buffer->data();
-            ALOGV("FslMediaSource::read 3 size=%d,ts=%lld",dstSize,timeUs);
+            ALOGV("FslMediaSource::read 3 size=%zu,ts=%" PRId64 "",dstSize,timeUs);
         }
 
     }
@@ -535,7 +537,7 @@ static int64   appFileSize( FslFileHandle file_handle, void * context)
 
     FslDataSourceReader *h = (FslDataSourceReader *)context;
 
-    ALOGV("appFileSize %lld", h->mLength);
+    ALOGV("appFileSize %" PRId64 "", h->mLength);
 
     return h->mLength;
 }
@@ -705,7 +707,7 @@ FslDataSourceReader::FslDataSourceReader(const sp<DataSource> &source)
         mLength = 0;
     }
 
-    ALOGV("FslDataSourceReader: mLength is %lld", mLength);
+    ALOGV("FslDataSourceReader: mLength is  %" PRId64 "", mLength);
 
     bStopReading = false;
     memset(&mMaxBufferSize[0],0,MAX_TRACK_COUNT*sizeof(uint32_t));
@@ -1524,7 +1526,7 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
     if(mime == NULL)
         return UNKNOWN_ERROR;
 
-    err = IParser->getTrackDuration(parserHandle, index,&duration);
+    err = IParser->getTrackDuration(parserHandle, index,(uint64 *)&duration);
     if(err)
         return UNKNOWN_ERROR;
 
@@ -1713,7 +1715,7 @@ status_t FslExtractor::ParseAudio(uint32 index, uint32 type,uint32 subtype)
     if(mime == NULL)
         return UNKNOWN_ERROR;
 
-    err = IParser->getTrackDuration(parserHandle, index,&duration);
+    err = IParser->getTrackDuration(parserHandle, index,(uint64 *)&duration);
     if(err)
         return UNKNOWN_ERROR;
 
@@ -2156,7 +2158,7 @@ status_t FslExtractor::HandleSeekOperation(uint32_t index,int64_t * ts,uint32_t 
     else if(pInfo->type == MEDIA_AUDIO)
         currentAudioTs = target;
 
-    ALOGD("HandleSeekOperation index=%d,ts=%lld,flag=%x",index,*ts,flag);
+    ALOGD("HandleSeekOperation index=%d,ts=%" PRId64 ",flag=%x",index,*ts,flag);
     return OK;
 }
 status_t FslExtractor::GetNextSample(uint32_t index,bool is_sync)
@@ -2311,7 +2313,7 @@ status_t FslExtractor::GetNextSample(uint32_t index,bool is_sync)
             add = true;
             if(pInfo->type == MEDIA_AUDIO){
                 if(pInfo->outTs >= 0 && pInfo->outTs < currentAudioTs && mVideoActived == true){
-                    ALOGV("drop audio after seek ts=%lld,audio_ts=%lld",pInfo->outTs,currentAudioTs);
+                    ALOGV("drop audio after seek ts= %" PRId64 ",audio_ts= %" PRId64 "",pInfo->outTs,currentAudioTs);
                     add = false;
                 }
             }
@@ -2330,8 +2332,8 @@ status_t FslExtractor::GetNextSample(uint32_t index,bool is_sync)
             MediaBuffer *mbuf = new MediaBuffer(pInfo->buffer);
             mbuf->meta_data()->setInt64(kKeyTime, pInfo->outTs);
             mbuf->meta_data()->setInt32(kKeyIsSyncFrame, pInfo->syncFrame);
-            ALOGV("addMediaBuffer ts=%lld,size=%d",pInfo->outTs,pInfo->buffer->size());
 
+            ALOGV("addMediaBuffer ts=%" PRId64 ",size=%zu",pInfo->outTs,pInfo->buffer->size());
             source->addMediaBuffer(mbuf);
             if(pInfo->type == MEDIA_VIDEO)
                 currentVideoTs = pInfo->outTs;

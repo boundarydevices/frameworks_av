@@ -475,7 +475,7 @@ void Converter::refineVideoQueue()
     size_t bufSize = mInputBufferQueue.size();
 
     if (mIsVideo) {
-        ALOGV("Converter: inputQueue size:%d, resize:%d", bufSize, requireSize);
+        ALOGV("Converter: inputQueue size:%zu, resize:%zu", bufSize, requireSize);
     }
     if (!mIsVideo || bufSize <= requireSize) {
         return;
@@ -507,7 +507,7 @@ void Converter::refineVideoQueue()
         prevBuf = *prev;
         start++;
     }
-    ALOGV("Converter: inputQueue size:%d", mInputBufferQueue.size());
+    ALOGV("Converter: inputQueue size:%zu", mInputBufferQueue.size());
 }
 
 void Converter::scheduleDoMoreWork() {

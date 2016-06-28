@@ -3237,7 +3237,7 @@ status_t ACodec::setMediaTime(int64_t time) {
             &def, sizeof(def));
 
     if (err != OK) {
-        ALOGE("codec does not support set media time %lld (err %d)",time, err);
+        ALOGE("codec does not support set media time %" PRId64 " (err %d)",time, err);
     }
     return OK;
 }

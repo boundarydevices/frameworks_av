@@ -386,7 +386,7 @@ bool NuPlayer::StreamingSource::discardMediaDate(bool audio, int64_t timeUs, sp<
             mLatencyLowest = nLatency;
         }
     } else {
-        ALOGV("mLatencyLowest: %lld mLatencyThreshold: %lld", mLatencyLowest, mLatencyThreshold);
+        ALOGV("mLatencyLowest: %" PRId64 " mLatencyThreshold: %" PRId64 "", mLatencyLowest, mLatencyThreshold);
         if (mLatencyLowest > mLatencyThreshold) {
             bDrop = true;
         }
@@ -422,7 +422,7 @@ bool NuPlayer::StreamingSource::discardMediaDate(bool audio, int64_t timeUs, sp<
 
     if (bDrop && nowUs > mResumeCheckTimeUs) {
         // Too long latency, discard the media data.
-        ALOGI("Too long latency: %lld us TunnelRenderLatency: %lld mediaTimeUs: %lld nBufferedTimeUs: %lld positionUs: %lld", \
+        ALOGI("Too long latency: %" PRId64 " us TunnelRenderLatency: %" PRId64 " mediaTimeUs: %" PRId64 " nBufferedTimeUs: %" PRId64 " positionUs: %" PRId64 "", \
                 nLatency, mTunnelRenderLatency, timeUs, nBufferedTimeUs, positionUs);
         mDropEndTimeUs = nowUs + mPipeLineLatencyUs - REMAIN_DATA_AFTER_DROP;
         mResumeCheckTimeUs = mDropEndTimeUs + RESUME_DROP_CHECK;
@@ -432,7 +432,7 @@ bool NuPlayer::StreamingSource::discardMediaDate(bool audio, int64_t timeUs, sp<
         mPipeLineLatencyUs = timeUs - positionUs;
         if (mPipeLineLatencyUs <= 0 || mPipeLineLatencyUs > 500000)
             mPipeLineLatencyUs = 100000;
-        ALOGV("mPipeLineLatencyUs: %lld\n", mPipeLineLatencyUs);
+        ALOGV("mPipeLineLatencyUs: %" PRId64 "\n", mPipeLineLatencyUs);
         return false;
     }
 }
