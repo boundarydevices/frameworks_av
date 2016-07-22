@@ -30,6 +30,7 @@
 #include "NuPlayerSource.h"
 #include "RTSPSource.h"
 #include "StreamingSource.h"
+#include "GenericStreamSource.h"
 #include "GenericSource.h"
 #include "TextDescriptions.h"
 
@@ -260,6 +261,10 @@ void NuPlayer::setDataSourceAsync(
                     || strstr(url, ".sdp?"))) {
         source = new RTSPSource(
                 notify, httpService, url, headers, mUIDValid, mUID, true);
+    }else if(!strncasecmp(url, "rtp://", 6)
+          || !strncasecmp(url, "udp://", 6)){
+        sp<IStreamSource> iss = new GenericStreamSource(url);
+        source = new StreamingSource(notify, iss);
     } else {
         sp<GenericSource> genericSource =
                 new GenericSource(notify, mUIDValid, mUID);

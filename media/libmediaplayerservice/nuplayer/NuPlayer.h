@@ -108,6 +108,10 @@ private:
     struct FlushDecoderAction;
     struct PostMessageAction;
     struct SimpleAction;
+    struct GenericStreamSource;
+    struct SessionManager;
+    struct RTPSessionManager;
+    struct UDPSessionManager;
 
     enum {
         kWhatSetDataSource              = '=DaS',

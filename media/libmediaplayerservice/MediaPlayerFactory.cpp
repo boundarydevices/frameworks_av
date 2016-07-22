@@ -284,7 +284,7 @@ void MediaPlayerFactory::registerBuiltinFactories() {
         return;
 
 #ifdef FSL_GM_PLAYER
-    registerFactory_l(new OMXPlayerFactory(), OMX_PLAYER);
+    //registerFactory_l(new OMXPlayerFactory(), OMX_PLAYER);
 #endif
     registerFactory_l(new NuPlayerFactory(), NU_PLAYER);
     registerFactory_l(new TestPlayerFactory(), TEST_PLAYER);

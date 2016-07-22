@@ -14,6 +14,10 @@ LOCAL_SRC_FILES:=                       \
         NuPlayerStreamListener.cpp      \
         RTSPSource.cpp                  \
         StreamingSource.cpp             \
+        GenericStreamSource.cpp       \
+        SessionManager.cpp       \
+        RTPSessionManager.cpp       \
+        UDPSessionManager.cpp       \
 
 LOCAL_C_INCLUDES := \
 	$(TOP)/frameworks/av/media/libstagefright                     \
