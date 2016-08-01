@@ -50,7 +50,10 @@ void NuPlayer::GenericStreamSource::setBuffers(const Vector<sp<IMemory> > &buffe
 {
     mListenerBuffers = buffers;
 }
-
+uint32_t NuPlayer::GenericStreamSource::flags() const
+{
+    return kFlagKeepLowLatency;
+}
 void NuPlayer::GenericStreamSource::onBufferAvailable(size_t index)
 {
     ALOGV("GenericStreamSource::onBufferAvailable index %d" , index);

@@ -265,6 +265,7 @@ void NuPlayer::setDataSourceAsync(
           || !strncasecmp(url, "udp://", 6)){
         sp<IStreamSource> iss = new GenericStreamSource(url);
         source = new StreamingSource(notify, iss);
+        mStreaming = true;
     } else {
         sp<GenericSource> genericSource =
                 new GenericSource(notify, mUIDValid, mUID);
@@ -2399,8 +2400,6 @@ void NuPlayer::onSourceNotify(const sp<AMessage> &msg) {
             int64_t positionUs;
             if (getCurrentPosition(&positionUs) == OK) {
                 mSource->setRenderPosition(positionUs);
-            }else{
-                ALOGE("%s getCurrentPosition failed.", __FUNCTION__);
             }
             break;
         }

@@ -27,7 +27,7 @@
 #include "GenericStreamSource.h"
 
 #define HIGH_WATERMARK 10 * 1024 * 1024
-#define LOW_WATERMARK 500 * 1024
+#define LOW_WATERMARK (0)//this value should be 0 to keep latency lowest.
 #define SHIFT_POINT 500 * 1024
 
 namespace android {

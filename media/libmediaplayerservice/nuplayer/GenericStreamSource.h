@@ -36,7 +36,7 @@ struct NuPlayer::GenericStreamSource : public IStreamSource{
     virtual void onBufferAvailable(size_t index);
 
     int32_t outputFilledBuffer(const sp<ABuffer> &filledBuffer);
-
+    virtual uint32_t flags() const;
 protected:
     ~GenericStreamSource();
     virtual IBinder* onAsBinder(){return NULL;};

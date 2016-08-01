@@ -322,6 +322,7 @@ bool NuPlayer::StreamingSource::discardMediaDate(bool audio, int64_t timeUs, sp<
 
             feedMoreTSData();
             usleep(1000);
+            ALOGV("feedMoreTSData.\n");
         }
 
         type = ATSParser::AUDIO;
@@ -362,7 +363,9 @@ bool NuPlayer::StreamingSource::discardMediaDate(bool audio, int64_t timeUs, sp<
     if (!audio)
         return false;
 
-    nLatency = timeUs + nBufferedTimeUs - positionUs + mTunnelRenderLatency;
+    nLatency = timeUs + nBufferedTimeUs - positionUs;
+    if(mTunnelRenderLatency > 0)
+        nLatency += mTunnelRenderLatency;
 #if 0
     {
         static int32_t nCnt = 0;
@@ -453,12 +456,12 @@ status_t NuPlayer::StreamingSource::dequeueAccessUnit(
         err = source->dequeueAccessUnit(accessUnit);
         if (err == OK) {
             int64_t timeUs;
-            CHECK((*accessUnit)->meta()->findInt64("timeUs", &timeUs));
-            ALOGV("dequeueAccessUnit timeUs=%lld us", timeUs);
-
             if (!(mSource->flags() & IStreamSource::kFlagKeepLowLatency \
                         && mPositionUs > 0)) 
                 break;
+            CHECK((*accessUnit)->meta()->findInt64("timeUs", &timeUs));
+            ALOGV("dequeueAccessUnit timeUs=%" PRId64 " us", timeUs);
+
             if (discardMediaDate(audio, timeUs, accessUnit) == false)
                 break;
         }

@@ -2254,6 +2254,7 @@ status_t ACodec::configureCodec(
                 if(err == OK && !encoder && isADTS && streaming){
                     OMX_DECODE_MODE mode = DEC_STREAM_MODE;
                     mOMX->setParameter(mNode, OMX_IndexParamDecoderPlayMode, &mode, sizeof(OMX_DECODE_MODE));
+                    ALOGV("enable DEC_STREAM_MODE");
                 }
             }
 
@@ -2888,7 +2889,7 @@ status_t ACodec::setupAACCodec(
         isADTS
             ? OMX_AUDIO_AACStreamFormatMP4ADTS
             : OMX_AUDIO_AACStreamFormatMP4FF;
-
+    ALOGV("setupAACCodec isADTS=%d",isADTS);
     OMX_AUDIO_PARAM_ANDROID_AACPRESENTATIONTYPE presentation;
     InitOMXParams(&presentation);
     presentation.nMaxOutputChannels = maxOutputChannelCount;
@@ -3804,8 +3805,8 @@ status_t ACodec::setupVideoDecoder(
             OMX_DECODER_CACHED_THR sThreshold;
             OMX_INIT_STRUCT(&sThreshold, OMX_DECODER_CACHED_THR);
             sThreshold.nPortIndex = 0;
-            sThreshold.nMaxDurationMsThreshold = 500; //500ms
-            sThreshold.nMaxBufCntThreshold = 7;
+            sThreshold.nMaxDurationMsThreshold = 100; //500ms
+            sThreshold.nMaxBufCntThreshold = 3;
             mOMX->setParameter(mNode, OMX_IndexParamDecoderCachedThreshold, &sThreshold, sizeof(sThreshold));
         }
     }
