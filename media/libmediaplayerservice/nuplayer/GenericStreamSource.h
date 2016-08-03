@@ -20,6 +20,7 @@
 #define GENERIC_STREAMSOURCE_H_
 
 #include "NuPlayer.h"
+#include <media/IStreamSource.h>
 
 namespace android {
 
@@ -37,6 +38,9 @@ struct NuPlayer::GenericStreamSource : public IStreamSource{
 
     int32_t outputFilledBuffer(const sp<ABuffer> &filledBuffer);
     virtual uint32_t flags() const;
+    void issueCommand(
+            IStreamListener::Command cmd, bool synchronous, const sp<AMessage> &extra);
+
 protected:
     ~GenericStreamSource();
     virtual IBinder* onAsBinder(){return NULL;};

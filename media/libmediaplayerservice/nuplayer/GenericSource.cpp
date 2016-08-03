@@ -37,6 +37,8 @@
 #include "../../libstagefright/include/NuCachedSource2.h"
 #include "../../libstagefright/include/WVMExtractor.h"
 #include "../../libstagefright/include/HTTPBase.h"
+#include <inttypes.h>
+#include "StreamingDataSource.h"
 
 namespace android {
 
@@ -146,6 +148,13 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
     float confidence;
     sp<AMessage> dummy;
     bool isWidevineStreaming = false;
+
+    const char* uri = mUri.c_str();
+    if (!strncasecmp("rtp://", uri, 6)
+       || !strncasecmp("udp://", uri, 6))
+    {
+        mimeType = MEDIA_MIMETYPE_CONTAINER_MPEG2TS;
+    }
 
     CHECK(mDataSource != NULL);
 
@@ -372,6 +381,7 @@ void NuPlayer::GenericSource::prepareAsync() {
 }
 
 void NuPlayer::GenericSource::onPrepareAsync() {
+    bool isRTPUDP = false;
     // delayed data source creation
     if (mDataSource == NULL) {
         // set to false first, if the extractor
@@ -394,9 +404,16 @@ void NuPlayer::GenericSource::onPrepareAsync() {
                 }
             }
 
-            mDataSource = DataSource::CreateFromURI(
-                   mHTTPService, uri, &mUriHeaders, &contentType,
-                   static_cast<HTTPBase *>(mHttpSource.get()));
+            if (!strncasecmp("rtp://", uri, 6)
+                    || !strncasecmp("udp://", uri, 6)){
+                mDataSource = new StreamingDataSource(uri);
+                isRTPUDP = true;
+            }
+            else{
+                mDataSource = DataSource::CreateFromURI(
+                       mHTTPService, uri, &mUriHeaders, &contentType,
+                       static_cast<HTTPBase *>(mHttpSource.get()));
+            }
         } else {
             mIsWidevine = false;
 
@@ -421,7 +438,7 @@ void NuPlayer::GenericSource::onPrepareAsync() {
     // could still be set to true later, if the streaming or file source
     // is sniffed to be widevine. We don't want to buffer for file source
     // in that case, so must check the flag now.
-    mIsStreaming = (mIsWidevine || mCachedSource != NULL);
+    mIsStreaming = (mIsWidevine || mCachedSource != NULL || isRTPUDP);
 
     // init extractor from data source
     status_t err = initFromDataSource();

@@ -31,6 +31,8 @@
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/Utils.h>
 
+#include <inttypes.h>
+
 namespace android {
 
 const int32_t kNumListenerQueuePackets = 80;

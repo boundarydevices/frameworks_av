@@ -40,13 +40,14 @@ public:
         kWhatNetworkNotify,
         kWhatRequireData,
     };
-
+    ssize_t read(void * data, size_t size);
 
 protected:
     ~SessionManager();
     virtual void onMessageReceived(const sp<AMessage> &msg);
     virtual status_t parseHeader(const sp<ABuffer> &buffer) = 0;
     virtual void enqueueFilledBuffer(const sp<ABuffer> &buffer) = 0;
+    virtual bool checkDiscontinuity(const sp<ABuffer> & /*buffer*/, int64_t * /*timestamp*/){return false;};
 
     List<sp<ABuffer>> mFilledBufferQueue;
     size_t mTotalDataSize;
@@ -60,8 +61,9 @@ private:
     AString mHost;
     int32_t mPort;
     sp<ALooper> mLooper;
-    bool pauseState;
     bool bufferingState;
+    Mutex mLock;
+    Condition mDataAvailableCond;
 
     bool parseURI(const char *uri, AString *host, int32_t *port);
     void onNetworkNotify(const sp<AMessage> &msg);

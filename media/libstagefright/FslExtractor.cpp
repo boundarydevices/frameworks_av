@@ -688,7 +688,7 @@ FslDataSourceReader::FslDataSourceReader(const sp<DataSource> &source)
 {
     off64_t size = 0;
 
-    mIsLiveStreaming = false;
+    mIsLiveStreaming = (mDataSource->flags() & DataSource::kIsLiveSource);
     mIsStreaming = (mDataSource->flags() & DataSource::kIsCachingDataSource);
 
     if(!mIsLiveStreaming){

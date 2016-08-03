@@ -52,7 +52,8 @@ void NuPlayer::GenericStreamSource::setBuffers(const Vector<sp<IMemory> > &buffe
 }
 uint32_t NuPlayer::GenericStreamSource::flags() const
 {
-    return kFlagKeepLowLatency;
+    //return kFlagKeepLowLatency;
+    return 0;
 }
 void NuPlayer::GenericStreamSource::onBufferAvailable(size_t index)
 {
@@ -102,6 +103,18 @@ int32_t NuPlayer::GenericStreamSource::outputFilledBuffer(const sp<ABuffer> &fil
         return dst_size;
     }
 
+}
+
+void NuPlayer::GenericStreamSource::issueCommand(
+        IStreamListener::Command cmd, bool synchronous, const sp<AMessage> &extra)
+{
+    sp<IStreamListener> spListener(mListener.promote());
+    if(spListener == NULL){
+        ALOGE("StreamListener not exist!");
+        return;
+    }
+
+    spListener->issueCommand(cmd, synchronous, extra);
 }
 
 

@@ -248,6 +248,10 @@ void NuPlayer::setDataSourceAsync(
 
     sp<AMessage> notify = new AMessage(kWhatSourceNotify, this);
 
+    if(!strncasecmp(url, "rtp://", 6)
+      || !strncasecmp(url, "udp://", 6))
+        mStreaming = true;
+
     sp<Source> source;
     if (IsHTTPLiveURL(url)) {
         source = new HTTPLiveSource(notify, httpService, url, headers);
@@ -261,12 +265,15 @@ void NuPlayer::setDataSourceAsync(
                     || strstr(url, ".sdp?"))) {
         source = new RTSPSource(
                 notify, httpService, url, headers, mUIDValid, mUID, true);
-    }else if(!strncasecmp(url, "rtp://", 6)
-          || !strncasecmp(url, "udp://", 6)){
+    }
+#ifdef RTPUDP_BY_STREAMING_SOURCE
+    else if(!strncasecmp(url, "rtp://", 6)
+      || !strncasecmp(url, "udp://", 6)){
         sp<IStreamSource> iss = new GenericStreamSource(url);
         source = new StreamingSource(notify, iss);
-        mStreaming = true;
-    } else {
+    }
+#endif
+    else {
         sp<GenericSource> genericSource =
                 new GenericSource(notify, mUIDValid, mUID);
         // Don't set FLAG_SECURE on mSourceFlags here for widevine.

@@ -26,9 +26,20 @@
 #include "UDPSessionManager.h"
 #include "GenericStreamSource.h"
 
-#define HIGH_WATERMARK 10 * 1024 * 1024
-#define LOW_WATERMARK (0)//this value should be 0 to keep latency lowest.
-#define SHIFT_POINT 500 * 1024
+#define KB * 1024
+#define MB * 1024 * 1024
+
+#define HIGH_WATERMARK (5 MB)
+#define LOW_WATERMARK (0 KB)//this value should be 0 to keep latency lowest.
+
+// if shift_point is 200KB, AVC_MP31_1280x720_AACLC_44.1kHz_2ch.ts will has no video output
+#define SHIFT_POINT (500 KB)
+
+const static int64_t WAIT_DATA_TIMEOUT = 10; // seconds
+
+#define DISPLAY_CACHED_DATA_SIZE
+
+#define MIN(a, b) ((a) < (b)) ? (a) : (b)
 
 namespace android {
 
@@ -40,16 +51,20 @@ NuPlayer::SessionManager::SessionManager(const char *uri, GenericStreamSource *s
     mSessionID(0),
     mPort(0),
     mLooper(new ALooper),
-    pauseState(false),
-    bufferingState(false)
+    bufferingState(true)
 {
-    ALOGV("SessionManager constructor");
+    ALOGI("constructor");
 }
 
 NuPlayer::SessionManager::~SessionManager()
 {
-    ALOGV("SessionManager destructor");
+    ALOGI("destructor");
+
+    mDataAvailableCond.signal();
+
     deInit();
+
+    mFilledBufferQueue.clear();
 }
 
 bool NuPlayer::SessionManager::parseURI(const char *uri, AString *host, int32_t *port)
@@ -209,14 +224,13 @@ void NuPlayer::SessionManager::onNetworkNotify(const sp<AMessage> &msg) {
                 break;
             }
 
-            if(!pauseState){
+            {
+                Mutex::Autolock autoLock(mLock);
                 enqueueFilledBuffer(data);
                 checkFlags(true);
             }
-            else
-                ALOGV("ignore this buffer because cache full");
 
-            //ALOGI("after enqueue, total size is %d", mTotalDataSize);
+            ALOGV("after enqueue, total size is %d", mTotalDataSize);
 
             if(mDownStreamComp)
                 tryOutputFilledBuffers();
@@ -237,8 +251,20 @@ void NuPlayer::SessionManager::onNetworkNotify(const sp<AMessage> &msg) {
 
 void NuPlayer::SessionManager::tryOutputFilledBuffers()
 {
+    //Mutex::Autolock autoLock(mLock);
+
     while(!mFilledBufferQueue.empty() && !bufferingState){
         sp<ABuffer> src = *mFilledBufferQueue.begin();
+
+        int64_t timestamp = 0;
+        if(checkDiscontinuity(src, &timestamp)){
+            ALOGI("send DISCONTINUITY...");
+
+            sp<AMessage> response = new AMessage;
+            response->setInt64("timeUs", timestamp);
+            mDownStreamComp->issueCommand(IStreamListener::DISCONTINUITY, false, response);
+
+        }
         int32_t ret = mDownStreamComp->outputFilledBuffer(src);
         ALOGV("tryOutputFilledBuffers, ret %d, src size %d", ret, src->size());
         if(ret >= (int32_t)src->size()){
@@ -268,27 +294,113 @@ void NuPlayer::SessionManager::tryOutputFilledBuffers()
 void NuPlayer::SessionManager::checkFlags(bool BufferIncreasing)
 {
     if(BufferIncreasing){
-        if(bufferingState && mTotalDataSize > (LOW_WATERMARK + SHIFT_POINT)){
+        if(bufferingState && mTotalDataSize > SHIFT_POINT){
             ALOGI("--- switch outof bufferingState");
             bufferingState = false;
+            mDataAvailableCond.signal();
         }
 
-        if(mTotalDataSize > HIGH_WATERMARK && !pauseState){
-            ALOGI("--- switch into pauseState");
-            pauseState = true;
+        if(mTotalDataSize > HIGH_WATERMARK){
+            ALOGI("--- cache overflow (%d KB), discard all ---", mTotalDataSize/1024);
+            mFilledBufferQueue.clear();
+            mTotalDataSize = 0;
         }
     }
     else{
-        if(pauseState && mTotalDataSize < (HIGH_WATERMARK - SHIFT_POINT)){
-            ALOGI("--- switch outof pauseState");
-            pauseState = false;
-        }
-
-        if(mTotalDataSize < LOW_WATERMARK && !bufferingState){
+        if(mTotalDataSize <= LOW_WATERMARK && !bufferingState){
             ALOGI("--- switch into bufferingState");
             bufferingState = true;
         }
     }
+
+#ifdef DISPLAY_CACHED_DATA_SIZE
+    // print mTotalDataSize every 2 seconds
+    static int prev_sec = 0;
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    if((prev_sec == 0) || (tv.tv_sec - prev_sec >= 2)){
+        ALOGI("==== cached data %d KB ====", mTotalDataSize/1024);
+        prev_sec = tv.tv_sec;
+    }
+#endif
+
+}
+
+#define USE_CONDITION_WAIT
+
+ssize_t NuPlayer::SessionManager::read(void * data, size_t size)
+{
+
+    size_t offset = 0;
+
+#ifndef USE_CONDITION_WAIT
+    struct timeval time_start;
+    gettimeofday(&time_start, NULL);
+#endif
+
+    ALOGV("to read size %d", size);
+
+    while(offset < size)
+    {
+
+#ifdef USE_CONDITION_WAIT
+            if(bufferingState){
+                Mutex::Autolock autoLock(mLock);
+                ALOGI("BufferingState, wait for data...");
+                status_t err = mDataAvailableCond.waitRelative(mLock, WAIT_DATA_TIMEOUT * 1000000000LL);
+                if (err != OK) {
+                    ALOGE("Wait for data timeout!");
+                    return -1;
+                }
+            }
+#else
+            if(bufferingState){
+                usleep(100000);
+
+                struct timeval time_now;
+                gettimeofday(&time_now, NULL);
+                if(time_now.tv_sec - time_start.tv_sec > WAIT_DATA_TIMEOUT){
+                    ALOGE("Waiting for data timeout!");
+                    break;
+                }
+                continue;
+            }
+#endif
+            mLock.lock();
+
+            if(mFilledBufferQueue.empty()){
+                mLock.unlock();
+                continue;
+            }
+
+            sp<ABuffer> src = *mFilledBufferQueue.begin();
+            CHECK(src != NULL);
+
+            checkDiscontinuity(src, NULL);
+
+            ALOGV("require size %d, available in buffer %d", size - offset, src->size());
+
+            size_t copy = MIN(src->size(), size - offset);
+            memcpy((uint8_t *)data + offset, src->data(), copy);
+            offset += copy;
+            mTotalDataSize -= copy;
+
+            if(copy == src->size()){
+                // finish copying one buffer
+                mFilledBufferQueue.erase(mFilledBufferQueue.begin());
+            }
+            else{
+                src->setRange(src->offset() + copy, src->size() - copy);
+            }
+
+            checkFlags(false);
+
+            mLock.unlock();
+    }
+
+    ALOGV("read result %d", offset);
+
+    return offset;
 }
 
 void NuPlayer::SessionManager::onMessageReceived(

@@ -39,6 +39,7 @@ NuPlayer::RTPSessionManager::RTPSessionManager(
     const char *uri,
     GenericStreamSource * pStreamSource)
     : SessionManager(uri, pStreamSource)
+    ,mCurSeqNo(0)
 {
     return;
 }
@@ -123,17 +124,33 @@ status_t NuPlayer::RTPSessionManager::parseHeader(const sp<ABuffer> &buffer)
     return OK;
 }
 
+bool NuPlayer::RTPSessionManager::checkDiscontinuity(const sp<ABuffer> &buffer, int64_t *timestamp)
+{
+    bool ret = false;
+    int32_t seqNo = buffer->int32Data();
+    if(mCurSeqNo != 0 && seqNo != 0 && mCurSeqNo != seqNo && (mCurSeqNo + 1) != seqNo){
+        int32_t rtptime = 0;
+        if(timestamp && buffer->meta()->findInt32("rtp-time", &rtptime))
+            *timestamp = rtptime;
+        ret = true;
+        ALOGI("sequenceNo incorrect: current %d, new %d, ts %d", mCurSeqNo, seqNo, rtptime);
+    }
+    mCurSeqNo = seqNo;
+    return ret;
+}
 
 void NuPlayer::RTPSessionManager::enqueueFilledBuffer(const sp<ABuffer> &buffer)
 {
     ALOGV("RTPSessionManager::enqueueFilledBuffer, total %d", mTotalDataSize);
 
-    if (mFilledBufferQueue.empty()) {
+    int32_t newExtendedSeqNo = buffer->int32Data();
+
+    // "0" means seqNo reaches upper limitation and restart from 0, shall append at end of queue
+    if (mFilledBufferQueue.empty() || newExtendedSeqNo == 0) {
         mFilledBufferQueue.push_back(buffer);
         mTotalDataSize += buffer->size();
     }
     else{
-        int32_t newExtendedSeqNo = buffer->int32Data();
 
         List<sp<ABuffer> >::iterator firstIt = mFilledBufferQueue.begin();
         List<sp<ABuffer> >::iterator it = --mFilledBufferQueue.end();
@@ -141,7 +158,7 @@ void NuPlayer::RTPSessionManager::enqueueFilledBuffer(const sp<ABuffer> &buffer)
             int32_t extendedSeqNo = (*it)->int32Data();
 
             if (extendedSeqNo == newExtendedSeqNo) {
-                ALOGE("sendFilledBuffer duplicated seqNo");
+                ALOGE("enqueueFilledBuffer duplicated seqNo");
                 return;
             }
 
@@ -165,7 +182,6 @@ void NuPlayer::RTPSessionManager::enqueueFilledBuffer(const sp<ABuffer> &buffer)
     ALOGV("after enqueue, total %d", mTotalDataSize);
 
 }
-
 
 }
 

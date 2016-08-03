@@ -33,6 +33,11 @@ struct NuPlayer::RTPSessionManager : public SessionManager{
         ~RTPSessionManager(){};
         virtual status_t parseHeader(const sp<ABuffer> &buffer);
         virtual void enqueueFilledBuffer(const sp<ABuffer> &buffer);
+        virtual bool checkDiscontinuity(const sp<ABuffer> &buffer, int64_t *timestamp);
+
+    private:
+
+        int32_t mCurSeqNo;
 
 };
 
