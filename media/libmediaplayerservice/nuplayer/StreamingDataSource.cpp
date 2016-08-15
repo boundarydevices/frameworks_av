@@ -55,5 +55,8 @@ ssize_t NuPlayer::StreamingDataSource::readAt(off64_t /*offset*/, void *data, si
 #endif
     return ret;
 }
-
-}  // namespace android
+int64_t NuPlayer::StreamingDataSource::getLatency()
+{
+    return mSessionManager->getBufferedDuration();
+}
+}// namespace android

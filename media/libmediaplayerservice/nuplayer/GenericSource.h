@@ -77,6 +77,8 @@ struct NuPlayer::GenericSource : public NuPlayer::Source {
     virtual status_t setBuffers(bool audio, Vector<MediaBuffer *> &buffers);
 
     virtual bool isStreaming() const;
+    virtual void setRenderPosition(int64_t positionUs);
+    virtual bool isAVCReorderDisabled() const;
 
     virtual void setOffloadAudio(bool offload);
 
@@ -244,6 +246,13 @@ private:
     };
     int32_t mTextTrackType;
 
+    int64_t mStartAnchor;
+    int64_t mPositionUs;
+    int64_t mAnchorTimeRealUs;
+    int64_t mDropEndTimeUs;
+    int64_t mLowestlatency;
+    bool mLowLatencyRTPStreaming;
+
     void resetDataSource();
 
     status_t initFromDataSource();
@@ -296,6 +305,8 @@ private:
 
     void queueDiscontinuityIfNeeded(
             bool seeking, bool formatChange, media_track_type trackType, Track *track);
+
+    bool doDropPacket(media_track_type trackType,int64_t positionUs);
 
     DISALLOW_EVIL_CONSTRUCTORS(GenericSource);
 };

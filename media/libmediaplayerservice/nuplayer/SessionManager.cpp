@@ -15,6 +15,7 @@
  */
 /* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 
+//#define LOG_NDEBUG 0
 #define LOG_TAG "SessoinManager"
 #include <utils/Log.h>
 #include <media/stagefright/foundation/ADebug.h>
@@ -25,6 +26,8 @@
 #include "RTPSessionManager.h"
 #include "UDPSessionManager.h"
 #include "GenericStreamSource.h"
+#include "ATSParser.h"
+#include <cutils/properties.h>
 
 #define KB * 1024
 #define MB * 1024 * 1024
@@ -54,6 +57,9 @@ NuPlayer::SessionManager::SessionManager(const char *uri, GenericStreamSource *s
     bufferingState(true)
 {
     ALOGI("constructor");
+    mStarted = false;
+    mQueueTimeUs = 0;
+    mDequeueTimeUs = 0;
 }
 
 NuPlayer::SessionManager::~SessionManager()
@@ -109,6 +115,9 @@ bool NuPlayer::SessionManager::init()
         return false;
     }
 
+    int pcmLen = 60;
+    adjustAudioSinkBufferLen(pcmLen);
+
     return true;
 }
 
@@ -125,9 +134,23 @@ bool NuPlayer::SessionManager::deInit()
         mLooper->stop();
     }
 
+    int pcmLen = 500;
+    adjustAudioSinkBufferLen(pcmLen);
+
     return true;
 }
+status_t NuPlayer::SessionManager::adjustAudioSinkBufferLen(int latencyMs)
+{
+    char value[10];
+    if(latencyMs < 0 || latencyMs > 5000)
+        return -1;
 
+    memset(value, 0, sizeof(value));
+    snprintf(value, sizeof(value), "%d", latencyMs);
+    property_set("media.stagefright.audio.sink", value);
+    ALOGI("adjustAudioSinkBufferLen latencyMs=%d",latencyMs);
+    return 0;
+}
 status_t NuPlayer::SessionManager::initNetwork()
 {
     ALOGV("SessionManager::init");
@@ -265,6 +288,25 @@ void NuPlayer::SessionManager::tryOutputFilledBuffers()
             mDownStreamComp->issueCommand(IStreamListener::DISCONTINUITY, false, response);
 
         }
+
+        //update dequeued time
+        src->meta()->findInt64("time", &mDequeueTimeUs);
+
+        int64_t bufferedTs = getBufferedDuration();
+
+        if(bufferedTs > 0){
+            sp<AMessage> extra = new AMessage;
+            extra->setInt32(
+                    IStreamListener::kKeyDiscontinuityMask,
+                    ATSParser::DISCONTINUITY_ABSOLUTE_TIME);
+            extra->setInt64("tunnel-render-latency", bufferedTs);
+
+            mDownStreamComp->issueCommand(
+                    IStreamListener::DISCONTINUITY,
+                    false /* synchronous */,
+                    extra);
+        }
+
         int32_t ret = mDownStreamComp->outputFilledBuffer(src);
         ALOGV("tryOutputFilledBuffers, ret %d, src size %d", ret, src->size());
         if(ret >= (int32_t)src->size()){
@@ -294,10 +336,17 @@ void NuPlayer::SessionManager::tryOutputFilledBuffers()
 void NuPlayer::SessionManager::checkFlags(bool BufferIncreasing)
 {
     if(BufferIncreasing){
-        if(bufferingState && mTotalDataSize > SHIFT_POINT){
-            ALOGI("--- switch outof bufferingState");
-            bufferingState = false;
-            mDataAvailableCond.signal();
+        if(bufferingState){
+            if(mStarted){
+                bufferingState = false;
+                mDataAvailableCond.signal();
+                ALOGV("--- switch outof bufferingState");
+            }else if(!mStarted && mTotalDataSize > SHIFT_POINT){
+                ALOGV("--- switch outof bufferingState start");
+                bufferingState = false;
+                mDataAvailableCond.signal();
+                mStarted = true;
+            }
         }
 
         if(mTotalDataSize > HIGH_WATERMARK){
@@ -308,7 +357,7 @@ void NuPlayer::SessionManager::checkFlags(bool BufferIncreasing)
     }
     else{
         if(mTotalDataSize <= LOW_WATERMARK && !bufferingState){
-            ALOGI("--- switch into bufferingState");
+            ALOGV("--- switch into bufferingState");
             bufferingState = true;
         }
     }
@@ -319,7 +368,7 @@ void NuPlayer::SessionManager::checkFlags(bool BufferIncreasing)
     struct timeval tv;
     gettimeofday(&tv, NULL);
     if((prev_sec == 0) || (tv.tv_sec - prev_sec >= 2)){
-        ALOGI("==== cached data %d KB ====", mTotalDataSize/1024);
+        //ALOGI("==== cached data %d KB , time %lld====", mTotalDataSize/1024,mQueueTimeUs-mDequeueTimeUs);
         prev_sec = tv.tv_sec;
     }
 #endif
@@ -344,13 +393,15 @@ ssize_t NuPlayer::SessionManager::read(void * data, size_t size)
     {
 
 #ifdef USE_CONDITION_WAIT
-            if(bufferingState){
+            {
                 Mutex::Autolock autoLock(mLock);
-                ALOGI("BufferingState, wait for data...");
-                status_t err = mDataAvailableCond.waitRelative(mLock, WAIT_DATA_TIMEOUT * 1000000000LL);
-                if (err != OK) {
-                    ALOGE("Wait for data timeout!");
-                    return -1;
+                if(bufferingState){
+                    ALOGV("BufferingState, wait for data...");
+                    status_t err = mDataAvailableCond.waitRelative(mLock, WAIT_DATA_TIMEOUT * 1000000000LL);
+                    if (err != OK) {
+                        ALOGE("Wait for data timeout!");
+                        return -1;
+                    }
                 }
             }
 #else
@@ -378,7 +429,8 @@ ssize_t NuPlayer::SessionManager::read(void * data, size_t size)
 
             checkDiscontinuity(src, NULL);
 
-            ALOGV("require size %d, available in buffer %d", size - offset, src->size());
+            //ALOGV("require size %d, available in buffer %d", size - offset, src->size());
+            src->meta()->findInt64("time", &mDequeueTimeUs);
 
             size_t copy = MIN(src->size(), size - offset);
             memcpy((uint8_t *)data + offset, src->data(), copy);
@@ -402,7 +454,13 @@ ssize_t NuPlayer::SessionManager::read(void * data, size_t size)
 
     return offset;
 }
-
+int64_t NuPlayer::SessionManager::getBufferedDuration()
+{
+    if(mQueueTimeUs > 0 && mDequeueTimeUs > 0){
+        return mQueueTimeUs - mDequeueTimeUs;
+    }
+    return 0;
+}
 void NuPlayer::SessionManager::onMessageReceived(
         const sp<AMessage> &msg) {
 

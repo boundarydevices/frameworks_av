@@ -290,6 +290,7 @@ private:
     void writeTrackInfo(Parcel* reply, const sp<AMessage> format) const;
     void scheduleSetVideoDecoderTime();
     void cancelSetVideoDecoderTime();
+
     DISALLOW_EVIL_CONSTRUCTORS(NuPlayer);
 };
 

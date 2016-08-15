@@ -41,7 +41,7 @@ public:
         kWhatRequireData,
     };
     ssize_t read(void * data, size_t size);
-
+    int64_t getBufferedDuration();
 protected:
     ~SessionManager();
     virtual void onMessageReceived(const sp<AMessage> &msg);
@@ -51,7 +51,8 @@ protected:
 
     List<sp<ABuffer>> mFilledBufferQueue;
     size_t mTotalDataSize;
-
+    int64_t mQueueTimeUs;
+    int64_t mDequeueTimeUs;
 private:
 
     GenericStreamSource * mDownStreamComp;
@@ -64,7 +65,7 @@ private:
     bool bufferingState;
     Mutex mLock;
     Condition mDataAvailableCond;
-
+    bool mStarted;
     bool parseURI(const char *uri, AString *host, int32_t *port);
     void onNetworkNotify(const sp<AMessage> &msg);
     status_t initNetwork();
@@ -72,7 +73,7 @@ private:
     bool deInit();
     void tryOutputFilledBuffers();
     void checkFlags(bool BufferIncreasing);
-
+    status_t adjustAudioSinkBufferLen(int latencyMs);
 };
 
 }

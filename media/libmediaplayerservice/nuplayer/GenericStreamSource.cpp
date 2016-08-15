@@ -22,7 +22,7 @@
 #include <media/stagefright/foundation/ABuffer.h>
 #include "GenericStreamSource.h"
 #include "SessionManager.h"
-
+#include <cutils/properties.h>
 
 
 namespace android {
@@ -33,6 +33,11 @@ NuPlayer::GenericStreamSource::GenericStreamSource(const char *uri):
 {
     ALOGV("GenericStreamSource constructor %s, %p", uri, this);
     mSessionManager = SessionManager::createSessionManager(uri, this);
+    mLowLatency = false;
+    int value;
+    value = property_get_int32("media.rtp_streaming.low_latency", 0);
+    if(value & 0x01)
+        mLowLatency = true;
 }
 
 NuPlayer::GenericStreamSource::~GenericStreamSource()
@@ -52,8 +57,10 @@ void NuPlayer::GenericStreamSource::setBuffers(const Vector<sp<IMemory> > &buffe
 }
 uint32_t NuPlayer::GenericStreamSource::flags() const
 {
-    //return kFlagKeepLowLatency;
-    return 0;
+    if(mLowLatency)
+        return IStreamSource::kFlagKeepLowLatency;
+    else
+        return 0;
 }
 void NuPlayer::GenericStreamSource::onBufferAvailable(size_t index)
 {

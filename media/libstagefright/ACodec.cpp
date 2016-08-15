@@ -2251,7 +2251,8 @@ status_t ACodec::configureCodec(
                         encoder, numChannels, sampleRate, bitRate, aacProfile,
                         isADTS != 0, sbrMode, maxOutputChannelCount, drc,
                         pcmLimiterEnable);
-                if(err == OK && !encoder && isADTS && streaming){
+
+                if(err == OK && !encoder && streaming){
                     OMX_DECODE_MODE mode = DEC_STREAM_MODE;
                     mOMX->setParameter(mNode, OMX_IndexParamDecoderPlayMode, &mode, sizeof(OMX_DECODE_MODE));
                     ALOGV("enable DEC_STREAM_MODE");
@@ -7163,7 +7164,6 @@ ACodec::UninitializedState::UninitializedState(ACodec *codec)
 
 void ACodec::UninitializedState::stateEntered() {
     ALOGV("Now uninitialized");
-
     if (mDeathNotifier != NULL) {
         mCodec->mNodeBinder->unlinkToDeath(mDeathNotifier);
         mDeathNotifier.clear();

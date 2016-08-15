@@ -39,7 +39,7 @@ public:
 
     virtual ssize_t readAt(off64_t offset, void *data, size_t size);
     virtual uint32_t flags() { return kIsLiveSource;}
-
+    int64_t getLatency();
 
 protected:
     virtual ~StreamingDataSource();

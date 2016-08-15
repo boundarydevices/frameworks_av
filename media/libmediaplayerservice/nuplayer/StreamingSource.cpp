@@ -468,7 +468,7 @@ status_t NuPlayer::StreamingSource::dequeueAccessUnit(
                 break;
         }
     }
-        
+
     return err;
 }
 

@@ -39,6 +39,7 @@
 #include "../../libstagefright/include/HTTPBase.h"
 #include <inttypes.h>
 #include "StreamingDataSource.h"
+#include <cutils/properties.h>
 
 namespace android {
 
@@ -92,6 +93,11 @@ void NuPlayer::GenericSource::resetDataSource() {
     mDrmManagerClient = NULL;
     mStarted = false;
     mStopRead = true;
+    mPositionUs = -1;
+    mStartAnchor = -1;
+    mDropEndTimeUs = -1;
+    mLowestlatency = -1;
+    mLowLatencyRTPStreaming = false;
 
     if (mBufferingMonitorLooper != NULL) {
         mBufferingMonitorLooper->unregisterHandler(mBufferingMonitor->id());
@@ -154,6 +160,10 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
        || !strncasecmp("udp://", uri, 6))
     {
         mimeType = MEDIA_MIMETYPE_CONTAINER_MPEG2TS;
+        int value;
+        value = property_get_int32("media.rtp_streaming.low_latency", 0);
+        if(value & 0x01)
+            mLowLatencyRTPStreaming = true;
     }
 
     CHECK(mDataSource != NULL);
@@ -1450,6 +1460,7 @@ void NuPlayer::GenericSource::onReadBuffer(sp<AMessage> msg) {
 
 void NuPlayer::GenericSource::readBuffer(
         media_track_type trackType, int64_t seekTimeUs, int64_t *actualTimeUs, bool formatChange) {
+    ALOGV("GenericSource readBuffer BEGIN type=%d",trackType);
     // Do not read data if Widevine source is stopped
     if (mStopRead) {
         return;
@@ -1482,7 +1493,6 @@ void NuPlayer::GenericSource::readBuffer(
         default:
             TRESPASS();
     }
-
     if (track->mSource == NULL) {
         return;
     }
@@ -1508,6 +1518,10 @@ void NuPlayer::GenericSource::readBuffer(
     int64_t videoSeekTimeResultUs = -1;
     int64_t startUs = ALooper::GetNowUs();
     int64_t nowUs = startUs;
+
+    if(mLowLatencyRTPStreaming)
+        maxBuffers = 1;
+
     for (size_t numBuffers = 0; numBuffers < maxBuffers; ) {
         Vector<MediaBuffer *> mediaBuffers;
         status_t err = NO_ERROR;
@@ -1535,6 +1549,11 @@ void NuPlayer::GenericSource::readBuffer(
                 track->mPackets->signalEOS(ERROR_MALFORMED);
                 break;
             }
+
+            if(mLowLatencyRTPStreaming && doDropPacket(trackType,timeUs)){
+                continue;
+            }
+
             if (trackType == MEDIA_TRACK_TYPE_AUDIO) {
                 mAudioTimeUs = timeUs;
                 mBufferingMonitor->updateQueuedTime(true /* isAudio */, timeUs);
@@ -1585,6 +1604,10 @@ void NuPlayer::GenericSource::readBuffer(
 
     if(videoSeekTimeResultUs > 0)
         *actualTimeUs = videoSeekTimeResultUs;
+
+    if(mLowLatencyRTPStreaming)
+        notifyNeedCurrentPosition();
+    ALOGV("GenericSource readBuffer END,type=%d",trackType);
 }
 
 void NuPlayer::GenericSource::queueDiscontinuityIfNeeded(
@@ -1600,6 +1623,76 @@ void NuPlayer::GenericSource::queueDiscontinuityIfNeeded(
                 : ATSParser::DISCONTINUITY_NONE;
         track->mPackets->queueDiscontinuity(type, NULL /* extra */, true /* discard */);
     }
+}
+void NuPlayer::GenericSource::setRenderPosition(int64_t positionUs) {
+    mPositionUs = positionUs;
+    mAnchorTimeRealUs = ALooper::GetNowUs();
+    if(mPositionUs > 0 && mStartAnchor == -1)
+        mStartAnchor = mAnchorTimeRealUs;
+    ALOGV("dequeueAccessUnit position=%" PRId64 ",time=%" PRId64 " " , mPositionUs,mAnchorTimeRealUs);
+    ALOGV("video_ts=%" PRId64 ",audio_ts=%" PRId64 "",mVideoTimeUs,mAudioTimeUs);
+}
+bool NuPlayer::GenericSource::doDropPacket(media_track_type trackType,int64_t positionUs)
+{
+    bool ret = false;
+    bool check = false;
+    int64_t latency = 0;
+    int64_t nowUs = ALooper::GetNowUs();
+
+    if(mPositionUs < 0 || mBuffering)
+        return false;
+
+    if(trackType != MEDIA_TRACK_TYPE_AUDIO)
+        return false;
+
+    //drop frame in droping period
+    if(mDropEndTimeUs > 0 && nowUs < mDropEndTimeUs){
+        ALOGI("===drop this frame===");
+        return true;
+    }
+
+    int64_t targetPos = mPositionUs + (nowUs - mAnchorTimeRealUs);
+
+    if(positionUs < targetPos)
+        ret = false;
+
+    StreamingDataSource *source = static_cast<NuPlayer::StreamingDataSource *>(mDataSource.get());
+
+    int64_t sourceLatency = source->getLatency();
+
+    latency = positionUs-targetPos+ sourceLatency;
+
+    if(latency < 0)
+        return false;
+
+    //reset check point every 5 seconds.
+    if(mStartAnchor > 0 && nowUs - mStartAnchor > 5000000){
+        mStartAnchor = nowUs;
+        mLowestlatency = -1;
+        check = true;
+        ALOGI("GenericSource sourceLatency=%" PRId64 ",targetPos=%" PRId64 ",latency=%" PRId64 "",sourceLatency,targetPos,latency);
+    }
+
+    //get lowest latency in 5 seconds
+    if(mLowestlatency == -1 || mLowestlatency > latency)
+        mLowestlatency = latency;
+
+    //check latency and decide whether to drop frame
+    if(check && mLowestlatency > 200000){
+        mDropEndTimeUs = nowUs + latency - 50000;
+        ALOGI("===drop start===end ts=%" PRId64,(latency - 50000));
+        ret = true;
+    }
+
+    return ret;
+}
+bool NuPlayer::GenericSource::isAVCReorderDisabled() const {
+    int value;
+    value = property_get_int32("media.avc_reorder.disable", 0);
+    if(value & 0x01)
+        return true;
+    else
+        return false;
 }
 
 NuPlayer::GenericSource::BufferingMonitor::BufferingMonitor(const sp<AMessage> &notify)

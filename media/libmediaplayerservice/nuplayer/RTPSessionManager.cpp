@@ -116,6 +116,8 @@ status_t NuPlayer::RTPSessionManager::parseHeader(const sp<ABuffer> &buffer)
     meta->setInt32("PT", data[1] & 0x7f);
     meta->setInt32("M", data[1] >> 7);
 
+    mQueueTimeUs = rtpTime * 100 / 9;
+    meta->setInt64("time",mQueueTimeUs);
     buffer->setInt32Data(seqNo);
     buffer->setRange(payloadOffset, size - payloadOffset);
 

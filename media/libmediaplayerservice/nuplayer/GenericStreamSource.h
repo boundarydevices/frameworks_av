@@ -53,7 +53,7 @@ private:
     Vector<sp<IMemory>> mListenerBuffers;
     List<size_t> mEmptyBufferQueue;
     sp<SessionManager> mSessionManager;
-
+    bool mLowLatency;
 };
 
 }

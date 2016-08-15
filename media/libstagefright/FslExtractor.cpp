@@ -456,7 +456,7 @@ static uint32  appReadFile( FslFileHandle file_handle, void * buffer, uint32 nb,
 
     ret = h->mDataSource->readAt(h->mOffset, buffer, nb);
 
-    //ALOGD("appReadFile at %lld nb %u, result %d", h->mOffset, (unsigned int)nb, ret);
+    //ALOGV("appReadFile at %lld nb %u, result %d", h->mOffset, (unsigned int)nb, ret);
 
     if(ret > 0)
     {
@@ -465,7 +465,7 @@ static uint32  appReadFile( FslFileHandle file_handle, void * buffer, uint32 nb,
     }
     else
     {
-        ALOGV("appLocalReadFile 0");
+        //ALOGV("appLocalReadFile 0");
         return 0xffffffff;
     }
 }
@@ -2347,6 +2347,12 @@ status_t FslExtractor::GetNextSample(uint32_t index,bool is_sync)
     //check for get subtitle track in file mode, avoid interleave
     pInfo = &mTracks.editItemAt(index);
     if(pInfo->type == MEDIA_TEXT && pInfo->mTrackNum != track_num_got)
+        return WOULD_BLOCK;
+
+    //the return value WOULD_BLOCK can only be used when playing rtp streaming.
+    //for other case, we must read and give a frame buffer when calling FslMediaSource::read()
+    if(mReader->isLiveStreaming() && mReadMode == PARSER_READ_MODE_FILE_BASED
+        && (pInfo->mTrackNum != track_num_got))
         return WOULD_BLOCK;
 
     return OK;
