@@ -273,6 +273,10 @@ status_t FslMediaSource::read(
 
         while(srcOffset + mNALLengthSize <= srcSize){
             size_t NALsize = U32_AT(srcPtr + srcOffset);
+            if((uint64_t)NALsize + (uint64_t) srcOffset >= 0xffffffff){
+                ALOGE("invalid NALsize 0x%x", NALsize);
+                break;
+            }
 
             srcPtr[srcOffset++] = 0;
             srcPtr[srcOffset++] = 0;
