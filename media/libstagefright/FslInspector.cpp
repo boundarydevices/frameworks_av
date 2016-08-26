@@ -208,235 +208,248 @@ static bool TryMpegTsType(char * pBuf, size_t buf_size)
 
     return false;
 }
-#define IS_MPEG_HEADER(data) ( (((char *)(data))[0] == 0x00) &&  \
+
+#define MPEG_PES_ID_MIN         0xBD
+#define MPEG_PES_ID_MAX         0xFF
+#define IS_MPEG_PES_ID(b)       ((b)>= MPEG_PES_ID_MIN && (b)<= MPEG_PES_ID_MAX)
+#define IS_MPEG_SC_PREFIX(data) ( (((char *)(data))[0] == 0x00) &&  \
                                 (((char *)(data))[1] == 0x00) &&  \
                                 (((char *)(data))[2] == 0x01) )
 
-#define IS_MPEG_PACK_CODE(b)    ((b) == 0xBA)
-#define IS_MPEG_SYS_CODE(b)     ((b) == 0xBB)
-#define IS_MPEG_PACK_HEADER(data)  (IS_MPEG_HEADER(data) && IS_MPEG_PACK_CODE(((char *)(data))[3]))
+#define IS_PS_PACK_ID(b)        ((b) == 0xBA)
+#define IS_PS_SYS_HEADER_ID(b)  ((b) == 0xBB)
 
-#define IS_MPEG_PES_CODE(b)     (((b) & 0xF0) == 0xE0 || ((b) & 0xF0) == 0xC0 || (b) >= 0xBD)
-#define IS_MPEG_PES_HEADER(data) (IS_MPEG_HEADER(data) && IS_MPEG_PES_CODE(((char *)(data))[3]))
 
-#define MPEG2_MAX_PROBE_LENGTH  (128 * 1024)  /* 128kB should be 64 packs of the most common 2kB pack size. */
+#define IS_PS_PACK_HEADER(data) (IS_MPEG_SC_PREFIX(data) && IS_PS_PACK_ID(((char *)(data))[3]))
+
+#define IS_MPEG_PES_HEADER(data) (IS_MPEG_SC_PREFIX(data) && IS_MPEG_PES_ID(((char *)(data))[3]))
+
+#define MPEG2_MAX_PROBE_SIZE    (131072)  /* 128 * 1024 = 128kB should be 64 packs of the most common 2kB pack size. */
 
 #define MPEG2_MIN_SYS_HEADERS   (2)
 #define MPEG2_MAX_SYS_HEADERS   (5)
 
-static status_t mpeg_sys_is_valid_pack(char * data, uint32_t len, uint32_t * pack_size)
+/*
+ *  MPEG-1 Pack Header                                 bit
+ *  pack_start_code                                     32
+ *  '0010'                                               4
+ *  system_clock_reference_base [32..30]                 3
+ *  marker_bit (the value is  '1')                       1
+ *  system_clock_reference_base [29..15]                15
+ *  marker_bit                                           1
+ *  system_clock_reference_base [14..0]                 15
+ *  marker_bit                                           1
+ *  marker_bit                                           1                                              1
+ *  program_mux_rate                                    22
+ *  marker_bit                                           1
+ *  if (nextbits() = = system_header_start_code) {
+ *      system_header ()
+ *  }
+ */
+
+
+/*
+ *  MPEG-2 Pack Header                                 bit
+ *  pack_start_code                                     32
+ *  '01'                                                 2
+ *  system_clock_reference_base [32..30]                 3
+ *  marker_bit (the value is  '1')                       1
+ *  system_clock_reference_base [29..15]                15
+ *  marker_bit                                           1
+ *  system_clock_reference_base [14..0]                 15
+ *  marker_bit                                           1
+ *  system_clock_reference_extension                     9
+ *  marker_bit                                           1
+ *  program_mux_rate                                    22
+ *  marker_bit                                           1
+ *  marker_bit                                           1
+ *  reserved                                             5
+ *  pack_stuffing_length                                 3
+ *  for (i = 0; i < pack_stuffing_length; i++) {
+ *       stuffing_byte                                   8
+ *  }
+ *  if (nextbits() = = system_header_start_code) {
+ *      system_header ()
+ *  }
+ */
+
+static status_t is_mpeg_sys_pack_valid(char * data, uint32_t len, uint32_t * pack_size)
 {
-    /* Check the pack header @ offset for validity, assuming that the 4 byte header
-    * itself has already been checked. */
-    uint32_t stuff_len;
+    // check the rest bytes after pack start code, the pack start code should already be check as valid.
+    uint32_t pack_stuffing_len;
 
     if (len < 12)
         return UNKNOWN_ERROR;
 
-    /* Check marker bits */
-    if ((data[4] & 0xC4) == 0x44) {
-        /* MPEG-2 PACK */
-        if (len < 14)
+    if ((data[4] & 0xF0) == 0x20) {
+        // find '0010', it is MPEG-1 PACK, now check the marker bits
+        if ((data[4] & 0x01) != 0x01 || (data[6] & 0x01) != 0x01 || \
+            (data[8] & 0x01) != 0x01 || (data[9] & 0x80) != 0x80 || (data[11] & 0x01) != 0x01)
             return UNKNOWN_ERROR;
 
-        if ((data[6] & 0x04) != 0x04 ||
-            (data[8] & 0x04) != 0x04 ||
-            (data[9] & 0x01) != 0x01 || (data[12] & 0x03) != 0x03)
-            return UNKNOWN_ERROR;
+        if (len >= 16 && !IS_MPEG_SC_PREFIX(data + 12))
+            return UNKNOWN_ERROR; //check next pack start code prefix failed
 
-        stuff_len = data[13] & 0x07;
-
-        /* Check the following header bytes, if we can */
-        if ((14 + stuff_len + 4) <= len) {
-            if (!IS_MPEG_HEADER (data + 14 + stuff_len))
-                return UNKNOWN_ERROR;
-        }
-        if (pack_size)
-            *pack_size = 14 + stuff_len;
-        return OK;
-    } else if ((data[4] & 0xF1) == 0x21) {
-        /* MPEG-1 PACK */
-        if ((data[6] & 0x01) != 0x01 ||
-            (data[8] & 0x01) != 0x01 ||
-            (data[9] & 0x80) != 0x80 || (data[11] & 0x01) != 0x01)
-            return UNKNOWN_ERROR;
-
-        /* Check the following header bytes, if we can */
-        if ((12 + 4) <= len) {
-            if (!IS_MPEG_HEADER (data + 12))
-                return UNKNOWN_ERROR;
-        }
         if (pack_size)
             *pack_size = 12;
+        return OK;
+
+    } else if ((data[4] & 0xC0) == 0x40) {
+        // find '01', it is MPEG-2 PACK, now check the marker bits
+        if ((data[4] & 0x04) != 0x04 || (data[6] & 0x04) != 0x04 || \
+            (data[8] & 0x04) != 0x04 || (data[9] & 0x01) != 0x01 || (data[12] & 0x03) != 0x03)
+            return UNKNOWN_ERROR;
+
+        pack_stuffing_len = data[13] & 0x07;
+        if ((len >= pack_stuffing_len + 18) && !IS_MPEG_SC_PREFIX(data + pack_stuffing_len + 14))
+            return UNKNOWN_ERROR; //check next pack start code prefix failed
+
+        if (pack_size)
+            *pack_size = pack_stuffing_len + 14;
         return OK;
     }
 
     return UNKNOWN_ERROR;
 }
 
-static status_t mpeg_sys_is_valid_pes(char * data, uint32_t len, uint32_t * pack_size)
+/*
+ *  PES Packet                                     bit
+ *  packet_start_code_prefix                        24
+ *  directory_stream_id                              8
+ *  PES_packet_length                               16
+ *  if (nextbits() == packet_start_code_prefix) {
+ *      pes_packet()
+ *  }
+ */
+
+static status_t is_mpeg_sys_pes_valid(char * data, uint32_t len, uint32_t * pack_size)
 {
+    // check the rest bytes after packet_start_code, the packet_start_code should already be check as valid.
     uint32_t pes_packet_len;
 
-    /* Check the PES header at the given position, assuming the header code itself
-    * was already checked */
     if (len < 6)
         return UNKNOWN_ERROR;
 
-    /* For MPEG Program streams, unbounded PES is not allowed, so we must have a
-    * valid length present */
-    pes_packet_len = data[4]; pes_packet_len <<=8;
-    pes_packet_len += data[5];
-    if (pes_packet_len == 0)
-        return UNKNOWN_ERROR;
+    pes_packet_len = (data[4] << 8) | data[5];
 
-    /* Check the following header, if we can */
-    if (6 + pes_packet_len + 4 <= len) {
-        if (!IS_MPEG_HEADER(data + 6 + pes_packet_len))
-            return UNKNOWN_ERROR;
-    }
+    if (pes_packet_len == 0 || ((len >= pes_packet_len + 10) && !IS_MPEG_SC_PREFIX(data + 6 + pes_packet_len)))
+        return UNKNOWN_ERROR;
 
     if (pack_size)
         *pack_size = 6 + pes_packet_len;
     return OK;
 }
 
-static status_t mpeg_sys_is_valid_sys(char * data, uint32_t len, uint32_t * pack_size)
-{
-    uint32_t sys_hdr_len;
+/*
+ *  System Header                                     bit
+ *  system_header_start_code                           32
+ *  header_length                                      16
+ *  marker_bit                                          1
+ *  rate_bound                                         22
+ *  marker_bit                                          1
+ *  audio_bound                                         6
+ *  fixed_flag                                          1
+ *  CSPS_flag                                           1
+ *  system_audio_lock_flag                              1
+ *  system_video_lock_flag                              1
+ *  marker_bit                                          1
+ *  video_bound                                         5
+ *  packet_rate_restriction_flag                        1
+ *  reserved_bits                                       7
+ *  while (nextbits () == '1') {
+ *      stream_id                                       8
+ *      '11'                                            2
+ *      P-STD_buffer_bound_scale                        1
+ *      P-STD_buffer_size_bound                        13
+ *  }
+ */
 
-    /* Check the System header at the given position, assuming the header code itself
-    * was already checked */
+static status_t is_mpeg_sys_sys_valid(char * data, uint32_t len, uint32_t * pack_size)
+{
+    // check the rest bytes after system_header_start_code, the system_header_start_code should already be check as valid.
+    uint32_t sys_header_len;
+
     if (len < 6)
         return UNKNOWN_ERROR;
-    sys_hdr_len = data[4]; sys_hdr_len <<=8;
-    sys_hdr_len += data[5];
 
-    if (sys_hdr_len < 6)
+    sys_header_len = (data[4] << 8) | data[5];
+
+    if (sys_header_len < 6 || ((len >= sys_header_len + 10) && !IS_MPEG_SC_PREFIX(data + sys_header_len + 6)))
         return UNKNOWN_ERROR;
 
-    /* Check the following header, if we can */
-    if (6 + sys_hdr_len + 4 <= len) {
-        if (!IS_MPEG_HEADER(data + 6 + sys_hdr_len))
-            return UNKNOWN_ERROR;
-    }
-
     if (pack_size)
-        *pack_size = 6 + sys_hdr_len;
+        *pack_size = 6 + sys_header_len;
 
     return OK;
 }
 
-/* calculation of possibility to identify random data as MPEG System Stream:
-* bits that must match in header detection:            32 (or more)
-* chance that random data is identified:                1/2^32
-* chance that MPEG2_MIN_PACK_HEADERS headers are identified:
-*       1/2^(32*MPEG2_MIN_PACK_HEADERS)
-* chance that this happens in MPEG2_MAX_PROBE_LENGTH bytes:
-*       1-(1+1/2^(32*MPEG2_MIN_PACK_HEADERS)^MPEG2_MAX_PROBE_LENGTH)
-* for current values:
-*       1-(1+1/2^(32*4)^101024)
-*       = <some_number>
-* Since we also check marker bits and pes packet lengths, this probability is a
-* very coarse upper bound.
-*/
+/*
+ * Estimate Probability of Identify Random Data As MPEG System Stream
+ * 1. Check start code(32 bit): (1/2)^32
+ * 2. Search MPEG2_MIN_SYS_HEADERS headers at least: (1/2)^32^(MPEG2_MIN_SYS_HEADERS+1)
+ * 3. Probability of identify random data in MPEG2_MAX_PROBE_SIZE bytes:
+ *        (MPEG2_MAX_PROBE_SIZE - 4*(MPEG2_MIN_SYS_HEADERS+1))*8/((1/2)^32^(MPEG2_MIN_SYS_HEADERS+1))
+ * 4. MPEG2_MAX_PROBE_SIZE is 131072, MPEG2_MIN_SYS_HEADERS is 2, so probability is:
+ *        (131072 - 4*(2+1))*8/((1/2)^32^3)
+ *    the value is about the (1/2)^76
+ * 5. Since we also check marker bit and header length, the actual probability is smaller than this value.
+ */
 static bool TryMpegSysType(char * pBuf, int32_t buf_size)
 {
-    char *data, *data0, *first_sync, *end;
-    int32_t mpegversion = 0;
+    char *data, *end;
     uint32_t pack_headers = 0;
     uint32_t pes_headers = 0;
     uint32_t pack_size;
     uint32_t since_last_sync = 0;
-    uint32_t sync_word = 0xffffffff;
+    int32_t len;
 
-    {
-        int32_t len;
+    len = MPEG2_MAX_PROBE_SIZE;
+    do {
+        data = Peek_data_from_buffer (pBuf, buf_size, 0, 5 + len);
+        len -= 4096;
+    } while (data == NULL && len >= 32);
 
-        len = MPEG2_MAX_PROBE_LENGTH ;
-        do {
-            data = Peek_data_from_buffer (pBuf, buf_size, 0, 5 + len);
-            len = len - 4096;
-        } while (data == NULL && len >= 32);
+    if (!data)
+        return false;
 
-        if (!data)
-            return false;
+    end = data + len;
 
-        end = data + len;
-    }
+    while (data + 4 < end){
+        if (IS_MPEG_SC_PREFIX(data)) {
+            if (since_last_sync > 4)
+                pes_headers = pack_headers = 0; // only count continuous pes_headers/pack_headers
 
-    data0 = data;
-    first_sync = NULL;
-
-    while (data < end) {
-        sync_word <<= 8;
-        if (sync_word == 0x00000100) {
-            /* Found potential sync word */
-            if (first_sync == NULL)
-                first_sync = data - 3;
-
-            if (since_last_sync > 4) {
-                /* If more than 4 bytes since the last sync word, reset our counters,
-                * as we're only interested in counting contiguous packets */
-                pes_headers = pack_headers = 0;
-            }
             pack_size = 0;
-
-            if (IS_MPEG_PACK_CODE (data[0])) {
-                if ((data[1] & 0xC0) == 0x40) {
-                    /* MPEG-2 */
-                    mpegversion = 2;
-                } else if ((data[1] & 0xF0) == 0x20) {
-                    mpegversion = 1;
-                }
-                if (mpegversion != 0 &&
-                    OK == mpeg_sys_is_valid_pack(data - 3, end - data + 3, &pack_size)) {
-                        pack_headers++;
-                }
-            } else if (IS_MPEG_PES_CODE (data[0])) {
-                /* PES stream */
-                if (OK == mpeg_sys_is_valid_pes(data - 3, end - data + 3, &pack_size)) {
-                    pes_headers++;
-                    if (mpegversion == 0)
-                        mpegversion = 2;
-                }
-            } else if (IS_MPEG_SYS_CODE (data[0])) {
-                if (OK == mpeg_sys_is_valid_sys(data - 3, end - data + 3, &pack_size)) {
+            if (IS_PS_PACK_ID(data[3])) {
+                if (OK == is_mpeg_sys_pack_valid(data, end - data, &pack_size))
                     pack_headers++;
+            } else if (IS_MPEG_PES_ID(data[3])) {
+                if (OK == is_mpeg_sys_pes_valid(data, end - data, &pack_size)) {
+                    pes_headers++;
                 }
+            } else if (IS_PS_SYS_HEADER_ID(data[3])) {
+                if (OK == is_mpeg_sys_sys_valid(data, end - data, &pack_size))
+                    pack_headers++;
             }
 
-            /* If we found a packet with a known size, skip the bytes in it and loop
-            * around to check the next packet. */
-            if (pack_size != 0) {
-                data += pack_size - 3;
-                sync_word = 0xffffffff;
+            if (pack_size > 0) {
+                data += pack_size;
                 since_last_sync = 0;
-                continue;
+
+                if (pes_headers > 0 && (pack_headers + pes_headers) > MPEG2_MAX_SYS_HEADERS)
+                    return true;
+                else
+                    continue;
             }
         }
-
-        sync_word |= data[0];
         since_last_sync++;
         data++;
-
-        /* If we have found MAX headers, and *some* were pes headers (pack headers
-        * are optional in an mpeg system stream) then return our high-probability
-        * result */
-        if (pes_headers > 0 && (pack_headers + pes_headers) > MPEG2_MAX_SYS_HEADERS)
-            goto suggest;
     }
-
-    /* If we at least saw MIN headers, and *some* were pes headers (pack headers
-    * are optional in an mpeg system stream) then return a lower-probability
-    * result */
+    // check pes_headers/pack_headers, pack headers are optional
     if (pes_headers > 0 && (pack_headers + pes_headers) >= MPEG2_MIN_SYS_HEADERS)
-        goto suggest;
+        return true;
 
     return false;
-suggest:
-
-    return true;
 };
 
 
