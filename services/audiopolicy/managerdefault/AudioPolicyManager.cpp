@@ -670,7 +670,7 @@ sp<IOProfile> AudioPolicyManager::getProfileForDirectOutput(
 
             // if hdmi, also assure the application enable direct output
             if(((saveFlag & AUDIO_OUTPUT_FLAG_DIRECT) == 0) &&
-               (strncmp(curProfile->mName.string(), "hdmi", 4) == 0)) {
+               (strncmp(curProfile->getName().string(), "hdmi", 4) == 0)) {
                ALOGI("Application not enable direct output");
                continue;
             }
