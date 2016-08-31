@@ -1639,7 +1639,7 @@ bool NuPlayer::GenericSource::doDropPacket(media_track_type trackType,int64_t po
     int64_t latency = 0;
     int64_t nowUs = ALooper::GetNowUs();
 
-    if(mPositionUs < 0 || mBuffering)
+    if(mPositionUs < 0 || mBufferingMonitor->isBuffering())
         return false;
 
     if(trackType != MEDIA_TRACK_TYPE_AUDIO)

@@ -146,6 +146,8 @@ private:
         // Update media time of last dequeued buffer which is sent to the decoder.
         void updateDequeuedBufferTime(int64_t mediaUs);
 
+        bool isBuffering(){return mBuffering;};
+
     protected:
         virtual ~BufferingMonitor();
         virtual void onMessageReceived(const sp<AMessage> &msg);
