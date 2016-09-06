@@ -4201,7 +4201,10 @@ status_t ACodec::setupVideoEncoder(
 
     video_def->nSliceHeight = sliceHeight;
 
-    def.nBufferSize = (video_def->nStride * video_def->nSliceHeight * 3) / 2;
+    if (mInputMetadataType == kMetadataBufferTypeANWBuffer)
+        def.nBufferSize = sizeof(VideoNativeMetadata);
+    else
+        def.nBufferSize = (video_def->nStride * video_def->nSliceHeight * 3) / 2;
 
     float frameRate;
     if (!msg->findFloat("frame-rate", &frameRate)) {
