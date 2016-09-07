@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "BpMediaExtractor"
@@ -97,9 +98,16 @@ public:
     }
 
     virtual uint32_t flags() const {
-        ALOGV("flags NOT IMPLEMENTED");
-        return 0;
-    }
+        ALOGV("flags");
+        Parcel data, reply;
+        data.writeInterfaceToken(BpMediaExtractor::getInterfaceDescriptor());
+        status_t ret = remote()->transact(FLAGS, data, &reply);
+        uint32_t flags = 0;
+        if (ret == NO_ERROR) {
+            flags = reply.readUint32();
+        }
+        return flags;
+     }
 
     virtual void setDrmFlag(bool flag __unused) {
         ALOGV("setDrmFlag NOT IMPLEMENTED");
@@ -128,7 +136,7 @@ IMPLEMENT_META_INTERFACE(MediaExtractor, "android.media.IMediaExtractor");
 #define LOG_TAG "BnMediaExtractor"
 
 status_t BnMediaExtractor::onTransact(
-    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
+    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flag)
 {
     switch (code) {
         case COUNTTRACKS: {
@@ -178,8 +186,15 @@ status_t BnMediaExtractor::onTransact(
             }
             return UNKNOWN_ERROR;
         }
+        case FLAGS: {
+            ALOGV("flags");
+            CHECK_INTERFACE(IMediaExtractor, data, reply);
+            uint32_t flag = flags();
+            reply->writeUint32(flag);
+            return NO_ERROR;
+        }
         default:
-            return BBinder::onTransact(code, data, reply, flags);
+            return BBinder::onTransact(code, data, reply, flag);
     }
 }
 
