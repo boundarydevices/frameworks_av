@@ -38,9 +38,9 @@ static int ALIGN(int x, int y) {
     return (x + y - 1) & ~(y - 1);
 }
 
-static bool supportYUVComposer() {
+bool SoftwareRenderer::supportYUVComposer() {
     char prop[PROPERTY_VALUE_MAX];
-    return !(property_get("sys.composer.no-yuv-support", prop, NULL) > 0);
+    return !(property_get("sys.composer.no-yuv-support", prop, NULL) && !strcmp(prop,"1"));
 }
 
 SoftwareRenderer::SoftwareRenderer(

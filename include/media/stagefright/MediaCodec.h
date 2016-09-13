@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 
 #ifndef MEDIA_CODEC_H_
 
@@ -40,7 +41,7 @@ struct MemoryDealer;
 class IResourceManagerClient;
 class IResourceManagerService;
 struct PersistentSurface;
-struct SoftwareRenderer;
+class SoftwareRenderer;
 struct Surface;
 
 struct MediaCodec : public AHandler {

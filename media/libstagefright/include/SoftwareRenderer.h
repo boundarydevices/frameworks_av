@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 
 #ifndef SOFTWARE_RENDERER_H_
 
@@ -40,6 +41,7 @@ public:
             const void *data, size_t size, int64_t mediaTimeUs, nsecs_t renderTimeNs,
             void *platformPrivate, const sp<AMessage> &format);
     void clearTracker();
+    static bool supportYUVComposer();
 
 private:
     enum YUVMode {

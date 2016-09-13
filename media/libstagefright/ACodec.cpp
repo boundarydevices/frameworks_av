@@ -60,7 +60,7 @@
 
 #include "include/DataConverter.h"
 #include "omx/OMXUtils.h"
-
+#include "include/SoftwareRenderer.h"
 
 namespace android {
 
@@ -2099,6 +2099,12 @@ status_t ACodec::configureCodec(
         if (haveNativeWindow && mComponentName.startsWith("OMX.google.")) {
             usingSwRenderer = true;
             haveNativeWindow = false;
+        }
+        else if (haveNativeWindow && !SoftwareRenderer::supportYUVComposer())
+        {
+            usingSwRenderer = true;
+            haveNativeWindow = false;
+            ALOGI("No yuv composer, use SoftwareRenderer.");
         }
 
         if (encoder) {
