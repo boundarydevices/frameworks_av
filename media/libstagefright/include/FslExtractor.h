@@ -1,5 +1,5 @@
 /**
- *  Copyright (c) 2016, Freescale Semiconductor Inc.,
+ *  Copyright (C) 2016 Freescale Semiconductor, Inc.
  *  All Rights Reserved.
  *
  *  The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -138,7 +138,7 @@ private:
     uint64_t mMovieDuration;
     struct TrackInfo {
         uint32_t mTrackNum;
-        sp<FslMediaSource> mSource;
+        wp<FslMediaSource> mSource;
         sp<MetaData> mMeta;
         const FslExtractor *mExtractor;
         bool bCodecInfoSent;

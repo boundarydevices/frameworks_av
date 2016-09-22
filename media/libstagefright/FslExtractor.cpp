@@ -918,7 +918,6 @@ sp<IMediaSource> FslExtractor::getTrack(size_t index)
     source = new FslMediaSource(this,index,meta);
 
     trackInfo->mSource = source;
-    source->decStrong(this);
     ALOGE("getTrack source string cnt=%d",source->getStrongCount());
 
     return source;
@@ -2307,7 +2306,7 @@ status_t FslExtractor::GetNextSample(uint32_t index,bool is_sync)
     }while((sampleFlag & FLAG_SAMPLE_NOT_FINISHED) && (pInfo->buffer->size() < pInfo->max_input_size));
 
     if(pInfo && pInfo->buffer != NULL ){
-        sp<FslMediaSource> source = pInfo->mSource;
+        sp<FslMediaSource> source = pInfo->mSource.promote();
         bool add = false;
         if(source != NULL  && source->started()){
             add = true;
@@ -2371,8 +2370,8 @@ status_t FslExtractor::CheckInterleaveEos(__unused uint32_t index)
 
     for(size_t i = 0; i < mTracks.size(); i++){
         TrackInfo *pInfo = &mTracks.editItemAt(i);
-        sp<FslMediaSource> source = pInfo->mSource;
-        if(source->started() && source->full()){
+        sp<FslMediaSource> source = pInfo->mSource.promote();
+        if(source != NULL && source->started() && source->full()){
             bTrackFull = true;
             ALOGE("get a full track");
             break;
