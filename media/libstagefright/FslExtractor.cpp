@@ -1647,7 +1647,8 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
     meta->setInt32(kKeyHeight, height);
     meta->setInt64(kKeyDuration, duration);
 
-    if(fps > 0)
+    // stagefright uses framerate only in MPEG4 extractor, let fslextrator be same with it
+    if(fps > 0 && !strcmp(mMime, MEDIA_MIMETYPE_VIDEO_MPEG4))
         meta->setInt32(kKeyFrameRate, fps);
     if(rotation > 0)
         meta->setInt32(kKeyRotation, rotation);
@@ -1673,6 +1674,7 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
     trackInfo->max_input_size = max_size;
     trackInfo->type = MEDIA_VIDEO;
     trackInfo->bIsNeedConvert = false;
+    trackInfo->bitPerSample = 0;
     mReader->AddBufferReadLimitation(index,max_size);
 
     ALOGI("add video track index=%u,source index=%zu,mime=%s",index,sourceIndex,mime);
@@ -1834,7 +1836,14 @@ status_t FslExtractor::ParseAudio(uint32 index, uint32 type,uint32 subtype)
         ALOGI("WMA subtype=%u",wmaType);
     }
 
-    if(bitPerSample > 0)
+
+    /*
+      stagefright's mediaextractor doesn't read meta data bitPerSample from
+      file, fslExtractor shall be same with it, otherwise cts NativeDecoderTest will fail.
+      This cts uses aac&vorbis tracks, acodec needs bitPerSample for wma&ape tracks,
+      so just block aac&vorbis from passing bitPerSample.
+      */
+    if(bitPerSample > 0 && type != AUDIO_AAC && type != AUDIO_VORBIS)
         meta->setInt32(kKeyBitPerSample,bitPerSample);
     if(audioBlockAlign > 0)
         meta->setInt32(kKeyAudioBlockAlign,audioBlockAlign);
@@ -1895,6 +1904,7 @@ status_t FslExtractor::ParseAudio(uint32 index, uint32 type,uint32 subtype)
     trackInfo->max_input_size = max_size;
     trackInfo->type = MEDIA_AUDIO;
     trackInfo->bIsNeedConvert = (type == AUDIO_PCM && bitPerSample!= 16);
+    trackInfo->bitPerSample = bitPerSample;
     mReader->AddBufferReadLimitation(index,max_size);
     ALOGI("add audio track index=%u,sourceIndex=%zu,mime=%s",index,sourceIndex,mime);
     return OK;
@@ -1963,6 +1973,7 @@ status_t FslExtractor::ParseText(uint32 index, uint32 type,uint32 subtype)
     trackInfo->max_input_size = MAX_TEXT_BUFFER_SIZE;
     trackInfo->type = MEDIA_TEXT;
     trackInfo->bIsNeedConvert = false;
+    trackInfo->bitPerSample = 0;
     mReader->AddBufferReadLimitation(index,MAX_TEXT_BUFFER_SIZE);
     ALOGD("add text track");
     return OK;
@@ -2319,11 +2330,9 @@ status_t FslExtractor::GetNextSample(uint32_t index,bool is_sync)
         }
         if(add){
             if(pInfo->bIsNeedConvert) {
-                int32_t bitPerSample = 16;
-                pInfo->mMeta->findInt32(kKeyBitPerSample, &bitPerSample);
                 sp<ABuffer> buffer = pInfo->buffer;
                 sp<ABuffer> tmp = new ABuffer(2 * buffer->size());
-                convertPCMData(buffer, tmp, bitPerSample);
+                convertPCMData(buffer, tmp, pInfo->bitPerSample);
                 pInfo->buffer = tmp;
                 buffer.clear();
             }

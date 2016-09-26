@@ -151,6 +151,7 @@ private:
         uint32_t max_input_size;
         uint32_t type;
         bool bIsNeedConvert;
+        int32_t bitPerSample;
     };
     Vector<TrackInfo> mTracks;
 
