@@ -3082,7 +3082,7 @@ status_t ACodec::setupWMACodec(
     if (err != OK) {
         return err;
     }
-    if(msg->findInt32("bit-rate", &bitRate))
+    if(msg->findInt32("bitrate", &bitRate))
         def.nBitRate= bitRate;
     if(msg->findInt32("channel-count", &numChannels))
         def.nChannels = numChannels;
