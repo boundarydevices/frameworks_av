@@ -319,6 +319,7 @@ private:
 
     OMX_ENDIANTYPE eEndian;
     bool mSetStartTime;
+    int32_t mEnqueuedBuffers;
 
     status_t setCyclicIntraMacroblockRefresh(const sp<AMessage> &msg, int32_t mode);
     status_t allocateBuffersOnPort(OMX_U32 portIndex);
