@@ -45,8 +45,6 @@
 
 namespace android {
 
-extern bool isForceUseGoogleAACCodec;
-
 const char *kMaxEncoderInputBuffers = "max-video-encoder-input-buffers";
 
 static Mutex sInitMutex;
@@ -1163,11 +1161,6 @@ void MediaCodecList::findMatchingCodecs(
         use_fsl_video = true;
     if(value & 0x04)
         use_fsl_audio = true;
-
-    // workaround for MA-8032, if isForceUseGoogleAACCodec is true,
-    // temporary disable fsl audio codec, after codec is loaded, this value must be reset to 0.
-    if(isForceUseGoogleAACCodec)
-        use_fsl_audio = false;
 
     for (;;) {
         ssize_t matchIndex =

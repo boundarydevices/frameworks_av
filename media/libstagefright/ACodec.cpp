@@ -64,7 +64,6 @@
 
 namespace android {
 
-extern bool isForceUseGoogleAACCodec;
 enum {
     kMaxIndicesToCheck = 32, // used when enumerating supported formats and profiles
 };
@@ -1659,6 +1658,8 @@ const char *ACodec::getComponentRole(
             "audio_decoder.amrwb", "audio_encoder.amrwb" },
         { MEDIA_MIMETYPE_AUDIO_AAC,
             "audio_decoder.aac", "audio_encoder.aac" },
+        { MEDIA_MIMETYPE_AUDIO_AAC_FSL,
+            "audio_decoder.aac", "audio_encoder.aac" },
         { MEDIA_MIMETYPE_AUDIO_VORBIS,
             "audio_decoder.vorbis", "audio_encoder.vorbis" },
         { MEDIA_MIMETYPE_AUDIO_OPUS,
@@ -2194,7 +2195,7 @@ status_t ACodec::configureCodec(
                     sampleRate,
                     numChannels);
         }
-    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC)) {
+    } else if ((!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC)) || (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC_FSL))) {
         int32_t numChannels, sampleRate;
         if (!msg->findInt32("channel-count", &numChannels)
                 || !msg->findInt32("sample-rate", &sampleRate)) {
@@ -7323,9 +7324,6 @@ bool ACodec::UninitializedState::onAllocateComponent(const sp<AMessage> &msg) {
 
         node = 0;
     }
-
-    if(isForceUseGoogleAACCodec)
-        isForceUseGoogleAACCodec = false;
 
     if (node == 0) {
         if (!mime.empty()) {

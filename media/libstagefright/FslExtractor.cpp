@@ -37,8 +37,6 @@ namespace android {
 #define MAX_TEXT_BUFFER_SIZE (1024)
 #define MAX_TRACK_COUNT 32
 
-bool isForceUseGoogleAACCodec = false;
-
 struct FslMediaSource : public MediaSource {
     FslMediaSource(
             const sp<FslExtractor> &extractor, size_t index, sp<MetaData>& metadata);
@@ -787,15 +785,15 @@ codec_mime_struct video_mime_table[]={
 codec_mime_struct audio_mime_table[]={
     {AUDIO_MP3,0,MEDIA_MIMETYPE_AUDIO_MPEG},
     {AUDIO_VORBIS,0,MEDIA_MIMETYPE_AUDIO_VORBIS},
-    {AUDIO_AAC,0,MEDIA_MIMETYPE_AUDIO_AAC},
-    {AUDIO_MPEG2_AAC,0,MEDIA_MIMETYPE_AUDIO_AAC},
+    {AUDIO_AAC,0,MEDIA_MIMETYPE_AUDIO_AAC_FSL},
+    {AUDIO_MPEG2_AAC,0,MEDIA_MIMETYPE_AUDIO_AAC_FSL},
     {AUDIO_AC3,0,MEDIA_MIMETYPE_AUDIO_AC3},
     {AUDIO_EC3,0,MEDIA_MIMETYPE_AUDIO_EAC3},
     {AUDIO_WMA,0,MEDIA_MIMETYPE_AUDIO_WMA},
     {AUDIO_AMR,AUDIO_AMR_NB,MEDIA_MIMETYPE_AUDIO_AMR_NB},
     {AUDIO_AMR,AUDIO_AMR_WB,MEDIA_MIMETYPE_AUDIO_AMR_WB},
     {AUDIO_PCM,0,MEDIA_MIMETYPE_AUDIO_RAW},
-    {AUDIO_REAL,REAL_AUDIO_RAAC,MEDIA_MIMETYPE_AUDIO_AAC},
+    {AUDIO_REAL,REAL_AUDIO_RAAC,MEDIA_MIMETYPE_AUDIO_AAC_FSL},
     {AUDIO_REAL,REAL_AUDIO_SIPR,MEDIA_MIMETYPE_AUDIO_REAL},
     {AUDIO_REAL,REAL_AUDIO_COOK,MEDIA_MIMETYPE_AUDIO_REAL},
     {AUDIO_REAL,REAL_AUDIO_ATRC,MEDIA_MIMETYPE_AUDIO_REAL},
@@ -1769,18 +1767,11 @@ status_t FslExtractor::ParseAudio(uint32 index, uint32 type,uint32 subtype)
 
     sp<MetaData> meta = new MetaData;
 
+    // switch to google.aac.decoder for m4a clips to pass testDecodeM4a, MA-8801
     const char *containerMime;
     mFileMetaData->findCString(kKeyMIMEType, &containerMime);
-    if(type == AUDIO_AAC && !strcmp(containerMime, MEDIA_MIMETYPE_CONTAINER_MPEG4)){
-        int64_t fileSize = 0;
-        mDataSource->getSize(&fileSize);
-
-        // workaround for MA-8032, set isForceUseGoogleAACCodec to true, force to use google codecs,
-        // to pass testDecodeM4a, testCodecResetsM4a & testAudioOnly, after codec is loaded, reset it to false.
-        if(fileSize == 60053 && samplerate == 44100 && bitrate == 256000 && channel == 2)
-           isForceUseGoogleAACCodec = true;
-        else if(fileSize == 55118 && samplerate == 44100 && bitrate == 96000 && channel == 2)
-           isForceUseGoogleAACCodec = true;
+    if(type == AUDIO_AAC && !strcmp(containerMime, MEDIA_MIMETYPE_CONTAINER_MPEG4) && mNumTracks == 1){
+        mime = MEDIA_MIMETYPE_AUDIO_AAC;
     }
     meta->setCString(kKeyMIMEType, mime);
     meta->setInt32(kKeyTrackID, index);
