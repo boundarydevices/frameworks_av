@@ -320,7 +320,7 @@ static VideoFrame *extractVideoFrame(
                 memcpy(codecBuffer->data(),
                         (const uint8_t*)mediaBuffer->data() + mediaBuffer->range_offset(),
                         mediaBuffer->range_length());
-                if (isAvcOrHevc && IsIDR(codecBuffer) && !isSeekingClosest) {
+                if (isAvcOrHevc && IsIDR(codecBuffer) && !isSeekingClosest && !firstOutput) {
                     // Only need to decode one IDR frame, unless we're seeking with CLOSEST
                     // option, in which case we need to actually decode to targetTimeUs.
                     haveMoreInputs = false;
