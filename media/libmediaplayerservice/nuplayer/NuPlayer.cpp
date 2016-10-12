@@ -1180,6 +1180,7 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                 if(mVideoDecoder != NULL)
                     scheduleSetVideoDecoderTime();
                 notifyListener(MEDIA_STARTED, 0, 0);
+                mStarted = true;
             } else if (what == Renderer::kWhatAudioTearDown) {
                 int32_t reason;
                 CHECK(msg->findInt32("reason", &reason));
@@ -1388,7 +1389,7 @@ void NuPlayer::onStart(int64_t startPositionUs) {
     mOffloadAudio = false;
     mAudioEOS = false;
     mVideoEOS = false;
-    mStarted = true;
+
     mPaused = false;
 
     uint32_t flags = 0;
