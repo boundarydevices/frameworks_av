@@ -1115,6 +1115,11 @@ status_t FslExtractor::CreateParserInterface()
         if(err)
             break;
 
+        //ignore the result because it is new api and some parser did implement it.
+        err = myQueryInterface(PARSER_API_GET_TRACK_EXT_TAG, (void **)&IParser->getTrackExtTag);
+        if(err)
+            err = PARSER_SUCCESS;
+
         //video properties
         err = myQueryInterface(PARSER_API_GET_VIDEO_FRAME_WIDTH, (void **)&IParser->getVideoFrameWidth);
         if(err)
@@ -1507,6 +1512,7 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
     size_t sourceIndex = 0;
     size_t max_size = 0;
     int64_t thumbnail_ts = -1;
+    bool mkv_encrypted = false;
     ALOGD("ParseVideo index=%u,type=%u,subtype=%u",index,type,subtype);
     for(i = 0; i < sizeof(video_mime_table)/sizeof(codec_mime_struct); i++){
         if (type == video_mime_table[i].type){
@@ -1656,6 +1662,26 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
 
     meta->setInt64(kKeyThumbnailTime, thumbnail_ts);
 
+    if(IParser->getTrackExtTag){
+        TrackExtTagList *pList = NULL;
+        TrackExtTagItem * pItem = NULL;
+        err = IParser->getTrackExtTag(parserHandle,index,&pList);
+        if(err){
+            return UNKNOWN_ERROR;
+        }
+
+        if(pList && pList->num > 0){
+            pItem = pList->m_ptr;
+            while(pItem != NULL){
+                if(pItem->index == FSL_PARSER_TRACKEXTTAG_CRPYTOKEY && !strcmp(mMime, MEDIA_MIMETYPE_CONTAINER_MATROSKA)){
+                    meta->setData(kKeyCryptoKey, pItem->type, pItem->data, pItem->size);
+                        mkv_encrypted = true;
+                        ALOGI("mkv_encrypted true %d",pItem->size);
+                }
+                pItem = pItem->nextItemPtr;
+            }
+        }
+    }
 
     mTracks.push();
     sourceIndex = mTracks.size() - 1;
@@ -1673,6 +1699,7 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
     trackInfo->type = MEDIA_VIDEO;
     trackInfo->bIsNeedConvert = false;
     trackInfo->bitPerSample = 0;
+    trackInfo->bMkvEncrypted = mkv_encrypted;
     mReader->AddBufferReadLimitation(index,max_size);
 
     ALOGI("add video track index=%u,source index=%zu,mime=%s",index,sourceIndex,mime);
@@ -1896,6 +1923,7 @@ status_t FslExtractor::ParseAudio(uint32 index, uint32 type,uint32 subtype)
     trackInfo->type = MEDIA_AUDIO;
     trackInfo->bIsNeedConvert = (type == AUDIO_PCM && bitPerSample!= 16);
     trackInfo->bitPerSample = bitPerSample;
+    trackInfo->bMkvEncrypted = false;
     mReader->AddBufferReadLimitation(index,max_size);
     ALOGI("add audio track index=%u,sourceIndex=%zu,mime=%s",index,sourceIndex,mime);
     return OK;
@@ -1965,6 +1993,7 @@ status_t FslExtractor::ParseText(uint32 index, uint32 type,uint32 subtype)
     trackInfo->type = MEDIA_TEXT;
     trackInfo->bIsNeedConvert = false;
     trackInfo->bitPerSample = 0;
+    trackInfo->bMkvEncrypted = false;
     mReader->AddBufferReadLimitation(index,MAX_TEXT_BUFFER_SIZE);
     ALOGD("add text track");
     return OK;
@@ -2333,6 +2362,9 @@ status_t FslExtractor::GetNextSample(uint32_t index,bool is_sync)
             mbuf->meta_data()->setInt32(kKeyIsSyncFrame, pInfo->syncFrame);
 
             ALOGV("addMediaBuffer ts=%" PRId64 ",size=%zu",pInfo->outTs,pInfo->buffer->size());
+            if(pInfo->bMkvEncrypted){
+                SetMkvCrpytBufferInfo(pInfo,mbuf);
+            }
             source->addMediaBuffer(mbuf);
             if(pInfo->type == MEDIA_VIDEO)
                 currentVideoTs = pInfo->outTs;
@@ -2433,5 +2465,52 @@ status_t FslExtractor::convertPCMData(sp<ABuffer> inBuffer, sp<ABuffer> outBuffe
 
     return OK;
 }
+status_t FslExtractor::SetMkvCrpytBufferInfo(TrackInfo *pInfo, MediaBuffer *buf) {
 
+    uint8 *buffer_ptr = (uint8 *)buf->data();
+    int32_t buffer_len = buf->size();
+    sp<MetaData> meta = buf->meta_data();
+
+    //parse the struct from http://www.webmproject.org/docs/webm-encryption/
+    if (buffer_ptr[0] & 0x1) {
+        if(buffer_len < 9)
+            return ERROR_MALFORMED;
+
+        buffer_len -= 9;
+
+        //full-sample encrypted block format
+        int32 plainSizes[] = { 0 };
+        int32 encryptedSizes[] = { buffer_len };
+        uint8 ctrCounter[16] = { 0 };
+
+        uint32 type = 0;
+        uint8 *keyId = NULL;
+        uint32 keySize = 0;
+
+        memcpy(ctrCounter, buffer_ptr + 1, 8);
+
+        sp<MetaData> trackMeta = pInfo->mMeta;
+        CHECK(trackMeta->findData(kKeyCryptoKey, &type, (const void**)&keyId, &keySize));
+        type = 0;//set type to 0 for mkv
+        meta->setData(kKeyCryptoKey, type, keyId, keySize);
+
+
+        meta->setData(kKeyCryptoIV, 0, ctrCounter, 16);
+        meta->setData(kKeyPlainSizes, 0, plainSizes, sizeof(plainSizes));
+        meta->setData(kKeyEncryptedSizes, 0, encryptedSizes, sizeof(encryptedSizes));
+
+        buf->set_range(9, buffer_len);
+
+    } else {
+        //unencrypted block format
+        buffer_len -= 1;
+        int32 plainSizes[] = { buffer_len };
+        int32 encryptedSizes[] = { 0 };
+        meta->setData(kKeyPlainSizes, 0, plainSizes, sizeof(plainSizes));
+        meta->setData(kKeyEncryptedSizes, 0, encryptedSizes, sizeof(encryptedSizes));
+        buf->set_range(1, buffer_len);
+    }
+
+    return OK;
+}
 }// namespace android

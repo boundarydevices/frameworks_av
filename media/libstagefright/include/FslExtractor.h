@@ -62,6 +62,7 @@ typedef struct
     FslParserGetLanguage                getLanguage;
     FslParserGetBitRate                 getBitRate;
     FslParserGetDecSpecificInfo         getDecoderSpecificInfo;
+    FslParserGetTrackExtTag             getTrackExtTag;
 
     /* video properties */
     FslParserGetVideoFrameWidth         getVideoFrameWidth;
@@ -152,6 +153,7 @@ private:
         uint32_t type;
         bool bIsNeedConvert;
         int32_t bitPerSample;
+        bool bMkvEncrypted;
     };
     Vector<TrackInfo> mTracks;
 
@@ -183,6 +185,7 @@ private:
 
     bool isTrackModeParser();
     status_t convertPCMData(sp<ABuffer> inBuffer, sp<ABuffer> outBuffer, int32_t bitPerSample);
+    status_t SetMkvCrpytBufferInfo(TrackInfo *pInfo, MediaBuffer *mbuf);
     FslExtractor(const FslExtractor &);
     FslExtractor &operator=(const FslExtractor &);
 };
