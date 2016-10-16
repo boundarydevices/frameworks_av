@@ -2485,7 +2485,7 @@ status_t FslExtractor::SetMkvCrpytBufferInfo(TrackInfo *pInfo, MediaBuffer *buf)
 
         uint32 type = 0;
         uint8 *keyId = NULL;
-        uint32 keySize = 0;
+        size_t keySize = 0;
 
         memcpy(ctrCounter, buffer_ptr + 1, 8);
 
