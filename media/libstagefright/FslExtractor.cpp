@@ -1978,6 +1978,24 @@ status_t FslExtractor::ParseText(uint32 index, uint32 type,uint32 subtype)
     meta->setInt32(kKeyHeight, height);
     meta->setCString(kKeyMediaLanguage, (const char*)&language);
 
+    if(IParser->getTrackExtTag){
+        TrackExtTagList *pList = NULL;
+        TrackExtTagItem *pItem = NULL;
+        err = IParser->getTrackExtTag(parserHandle, index, &pList);
+        if(err)
+            return UNKNOWN_ERROR;
+
+        if(pList && pList->num > 0){
+            pItem = pList->m_ptr;
+            while(pItem != NULL){
+                if(pItem->index == FSL_PARSER_TRACKEXTTAG_TX3G){
+                    meta->setData(kKeyTextFormatData, pItem->type, pItem->data, pItem->size);
+                    ALOGI("kKeyTextFormatData %d",pItem->size);
+                }
+                pItem = pItem->nextItemPtr;
+            }
+        }
+    }
     mTracks.push();
     TrackInfo *trackInfo = &mTracks.editItemAt(mTracks.size() - 1);
     trackInfo->mTrackNum = index;
