@@ -11,6 +11,7 @@
 #include <utils/Log.h>
 
 #include "include/FslExtractor.h"
+#include "include/avc_utils.h"
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
@@ -1253,7 +1254,7 @@ status_t FslExtractor::CreateParserInterface()
 status_t FslExtractor::ParseFromParser()
 {
     int32 err = (int32)PARSER_SUCCESS;
-    uint32 flag = FLAG_H264_NO_CONVERT | FLAG_OUTPUT_PTS | FLAG_ID3_FORMAT_NON_UTF8;
+    uint32 flag = FLAG_H264_NO_CONVERT | FLAG_OUTPUT_PTS | FLAG_ID3_FORMAT_NON_UTF8 | FLAG_OUTPUT_H264_SEI_POS_DATA;
 
     uint32 trackCnt = 0;
     bool bLive = mReader->isLiveStreaming();
@@ -2326,13 +2327,24 @@ status_t FslExtractor::GetNextSample(uint32_t index,bool is_sync)
                 }else {
                     sp<ABuffer> lastBuf = buffer;
                     sp<ABuffer> currBuf = (ABuffer *)buffer_context;
-                    size_t tempLen = lastBuf->size();
-                    buffer = new ABuffer(tempLen + (size_t)datasize);
-                    memcpy(buffer->data(),lastBuf->data(),tempLen);
-                    memcpy(buffer->data()+tempLen,currBuf->data(),currBuf->size());
-                    lastBuf.clear();
-                    currBuf.clear();
-                    pInfo->buffer = buffer;
+                    if (pInfo->type == MEDIA_VIDEO && (sampleFlag & FLAG_SAMPLE_H264_SEI_POS_DATA)) {
+                        // add sei position data to last video frame buffer as the meta data
+                        sp<ABuffer> sei = new ABuffer(sizeof(NALPosition));
+                        NALPosition *nalPos = (NALPosition *)sei->data();
+                        SeiPosition *seiPos = (SeiPosition *)currBuf->data();
+                        nalPos->nalOffset = seiPos->offset;
+                        nalPos->nalSize = seiPos->size;
+                        buffer->meta()->setBuffer("sei", sei);
+                        currBuf.clear();
+                    } else {
+                        size_t tempLen = lastBuf->size();
+                        buffer = new ABuffer(tempLen + (size_t)datasize);
+                        memcpy(buffer->data(),lastBuf->data(),tempLen);
+                        memcpy(buffer->data()+tempLen,currBuf->data(),currBuf->size());
+                        lastBuf.clear();
+                        currBuf.clear();
+                        pInfo->buffer = buffer;
+                    }
                     ALOGV("bPartial second buffer,");
                 }
 
@@ -2376,8 +2388,11 @@ status_t FslExtractor::GetNextSample(uint32_t index,bool is_sync)
             }
 
             MediaBuffer *mbuf = new MediaBuffer(pInfo->buffer);
+            sp<ABuffer> sei;
             mbuf->meta_data()->setInt64(kKeyTime, pInfo->outTs);
             mbuf->meta_data()->setInt32(kKeyIsSyncFrame, pInfo->syncFrame);
+            if (pInfo->buffer->meta()->findBuffer("sei", &sei))
+                mbuf->meta_data()->setData(kKeySEI, 0, sei->data(), sei->size());
 
             ALOGV("addMediaBuffer ts=%" PRId64 ",size=%zu",pInfo->outTs,pInfo->buffer->size());
             if(pInfo->bMkvEncrypted){
