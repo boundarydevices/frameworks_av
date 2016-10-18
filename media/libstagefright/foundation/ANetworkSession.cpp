@@ -1118,11 +1118,11 @@ status_t ANetworkSession::createClientOrServer(
                     if (paddr_in->sin_family == AF_INET){
                         uint32_t s_addr = (uint32_t)ntohl(paddr_in->sin_addr.s_addr);
                         if((s_addr & 0xf0000000) == 0xe0000000)
+                        {
                             ALOGV("is_multicast is true!");
                             is_multicast = true;
+                        }
                     }
-
-                    freeaddrinfo(res);
 
                     if (is_multicast) {
                         struct ip_mreq mreq;
@@ -1133,9 +1133,11 @@ status_t ANetworkSession::createClientOrServer(
                             err = -errno;
                             ALOGE("join multi cast fail! %s, s_addr is 0x%x",
                                 strerror(errno), ntohl(paddr_in->sin_addr.s_addr));
+                            freeaddrinfo(res);
                             goto bail2;
                         }
                     }
+                   freeaddrinfo(res);
                 }
 
 
