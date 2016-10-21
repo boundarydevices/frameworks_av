@@ -315,7 +315,7 @@ private:
     OMX_ENDIANTYPE eEndian;
     android_native_rect_t mOutCrop;
     int32_t mFrameCleanCrop;
-
+    int32_t mEnqueuedBuffers;
     OMX_INDEXTYPE mDescribeColorAspectsIndex;
     OMX_INDEXTYPE mDescribeHDRStaticInfoIndex;
 

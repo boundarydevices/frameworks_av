@@ -553,7 +553,7 @@ ACodec::ACodec()
     eEndian = OMX_EndianLittle;
 
     memset(&mLastNativeWindowCrop, 0, sizeof(mLastNativeWindowCrop));
-
+    mEnqueuedBuffers = 0;
     changeState(mUninitializedState);
 }
 
@@ -1449,6 +1449,8 @@ ACodec::BufferInfo *ACodec::dequeueBufferFromNativeWindow() {
                 info->mStatus = BufferInfo::OWNED_BY_US;
                 info->setWriteFence(fenceFd, "dequeueBufferFromNativeWindow");
                 updateRenderInfoForDequeuedBuffer(buf, fenceFd, info);
+                if(mEnqueuedBuffers > 0)
+                    mEnqueuedBuffers --;
                 return info;
             }
         }
@@ -7091,6 +7093,7 @@ void ACodec::BaseState::onOutputBufferDrained(const sp<AMessage> &msg) {
         info->mFenceFd = -1;
         if (err == OK) {
             info->mStatus = BufferInfo::OWNED_BY_NATIVE_WINDOW;
+            mCodec->mEnqueuedBuffers ++;
         } else {
             ALOGE("queueBuffer failed in onOutputBufferDrained: %d", err);
             mCodec->signalError(OMX_ErrorUndefined, makeNoSideEffectStatus(err));
@@ -7118,7 +7121,6 @@ void ACodec::BaseState::onOutputBufferDrained(const sp<AMessage> &msg) {
             if (info->mStatus == BufferInfo::OWNED_BY_NATIVE_WINDOW) {
                 // We cannot resubmit the buffer we just rendered, dequeue
                 // the spare instead.
-
                 info = mCodec->dequeueBufferFromNativeWindow();
             }
             break;
@@ -7128,6 +7130,11 @@ void ACodec::BaseState::onOutputBufferDrained(const sp<AMessage> &msg) {
         {
             if (!mCodec->mPortEOS[kPortIndexOutput]) {
                 if (info->mStatus == BufferInfo::OWNED_BY_NATIVE_WINDOW) {
+                    //dequeue buffer until surface has 2 buffers
+                    if(mCodec->mEnqueuedBuffers > 0 && mCodec->mEnqueuedBuffers < 3){
+                        ALOGE("[%s]do not dequeue buffer,queued cnt=%d",mCodec->mComponentName.c_str(),mCodec->mEnqueuedBuffers);
+                        break;
+                    }
                     // We cannot resubmit the buffer we just rendered, dequeue
                     // the spare instead.
 
@@ -7394,7 +7401,7 @@ void ACodec::LoadedState::stateEntered() {
     mCodec->mInputFormat.clear();
     mCodec->mOutputFormat.clear();
     mCodec->mBaseOutputFormat.clear();
-
+    mCodec->mEnqueuedBuffers = 0;
     if (mCodec->mShutdownInProgress) {
         bool keepComponentAllocated = mCodec->mKeepComponentAllocated;
 
@@ -8352,6 +8359,7 @@ bool ACodec::OutputPortSettingsChangedState::onMessageReceived(
 void ACodec::OutputPortSettingsChangedState::stateEntered() {
     ALOGV("[%s] Now handling output port settings change",
          mCodec->mComponentName.c_str());
+    mCodec->mEnqueuedBuffers = 0;
 }
 
 bool ACodec::OutputPortSettingsChangedState::onOMXFrameRendered(
@@ -8623,6 +8631,7 @@ void ACodec::FlushingState::stateEntered() {
     ALOGV("[%s] Now Flushing", mCodec->mComponentName.c_str());
 
     mFlushComplete[kPortIndexInput] = mFlushComplete[kPortIndexOutput] = false;
+    mCodec->mEnqueuedBuffers = 0;
 }
 
 bool ACodec::FlushingState::onMessageReceived(const sp<AMessage> &msg) {
