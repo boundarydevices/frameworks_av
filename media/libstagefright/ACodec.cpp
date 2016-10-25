@@ -3806,19 +3806,24 @@ status_t ACodec::setupVideoDecoder(
     if (err != OK) {
         return err;
     }
-    int32_t streaming = 0;
-    if(msg->findInt32("streaming", &streaming)){
-        ALOGI("setupVideoDecoder streaming is %d" , streaming);
-        if(!strncmp(mComponentName.c_str(), "OMX.Freescale.std.video_decoder", 31)
-              && strstr(mComponentName.c_str(),"hw-based")
-              && streaming){
-            OMX_DECODER_CACHED_THR sThreshold;
-            OMX_INIT_STRUCT(&sThreshold, OMX_DECODER_CACHED_THR);
-            sThreshold.nPortIndex = 0;
-            sThreshold.nMaxDurationMsThreshold = 100; //500ms
-            sThreshold.nMaxBufCntThreshold = 3;
-            mOMX->setParameter(mNode, OMX_IndexParamDecoderCachedThreshold, &sThreshold, sizeof(sThreshold));
+
+    if(!strncmp(mComponentName.c_str(), "OMX.Freescale.std.video_decoder", 31)
+          && strstr(mComponentName.c_str(),"hw-based")) {
+        OMX_DECODER_CACHED_THR sThreshold;
+        OMX_INIT_STRUCT(&sThreshold, OMX_DECODER_CACHED_THR);
+        OMX_S32 maxDurationMsThreshold = 1000; // set default cached threshoad to vpu decoder
+        OMX_S32 maxBufCntThreshold = 30;
+        int32_t streaming = 0;
+
+        if(msg->findInt32("streaming", &streaming) && streaming){
+            maxDurationMsThreshold = 100; //500ms
+            maxBufCntThreshold = 3;
         }
+
+        sThreshold.nPortIndex = 0;
+        sThreshold.nMaxDurationMsThreshold = maxDurationMsThreshold;
+        sThreshold.nMaxBufCntThreshold = maxBufCntThreshold;
+        mOMX->setParameter(mNode, OMX_IndexParamDecoderCachedThreshold, &sThreshold, sizeof(sThreshold));
     }
 
     err = setHDRStaticInfoForVideoCodec(kPortIndexOutput, msg, outputFormat);
