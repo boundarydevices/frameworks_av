@@ -407,8 +407,17 @@ void NuPlayer::Decoder::onSetParameters(const sp<AMessage> &params) {
 
         sp<AMessage> codecParams = new AMessage();
         codecParams->setFloat("operating-rate", decodeFrameRate * mPlaybackSpeed);
+
         mCodec->setParameters(codecParams);
     }
+
+    int64_t ts = 0;
+    if (params->findInt64("media-time", &ts)){
+        sp<AMessage> codecParams = new AMessage();
+        codecParams->setInt64("media-time", ts);
+        mCodec->setParameters(codecParams);
+    }
+
 }
 
 void NuPlayer::Decoder::onSetRenderer(const sp<Renderer> &renderer) {
