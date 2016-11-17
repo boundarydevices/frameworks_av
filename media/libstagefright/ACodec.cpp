@@ -1067,7 +1067,6 @@ status_t ACodec::configureOutputBuffersFromNativeWindow(
     // XXX: Is this the right logic to use?  It's not clear to me what the OMX
     // buffer counts refer to - how do they account for the renderer holding on
     // to buffers?
-    *minUndequeuedBuffers = 0;
     for (OMX_U32 extraBuffers = 2 + 1; /* condition inside loop */; extraBuffers--) {
         OMX_U32 newBufferCount =
             def.nBufferCountMin + *minUndequeuedBuffers + extraBuffers;
@@ -1087,7 +1086,6 @@ status_t ACodec::configureOutputBuffersFromNativeWindow(
             return err;
         }
     }
-    *minUndequeuedBuffers = 0;
 
     err = native_window_set_buffer_count(
             mNativeWindow.get(), def.nBufferCountActual);
@@ -1160,6 +1158,9 @@ status_t ACodec::allocateOutputBuffersFromNativeWindow() {
     OMX_U32 cancelStart;
     OMX_U32 cancelEnd;
 
+    bool VpuRequireAllBuffers = !strncmp(mComponentName.c_str(), "OMX.Freescale.std.video_decoder", 31)
+     && strstr(mComponentName.c_str(),"hw-based");
+
     if (err != 0) {
         // If an error occurred while dequeuing we need to cancel any buffers
         // that were dequeued.
@@ -1167,7 +1168,7 @@ status_t ACodec::allocateOutputBuffersFromNativeWindow() {
         cancelEnd = mBuffers[kPortIndexOutput].size();
     } else {
         // Return the required minimum undequeued buffers to the native window.
-        cancelStart = bufferCount - minUndequeuedBuffers;
+        cancelStart = VpuRequireAllBuffers ? bufferCount : bufferCount - minUndequeuedBuffers;
         cancelEnd = bufferCount;
     }
 
@@ -8636,7 +8637,6 @@ void ACodec::FlushingState::stateEntered() {
     ALOGV("[%s] Now Flushing", mCodec->mComponentName.c_str());
 
     mFlushComplete[kPortIndexInput] = mFlushComplete[kPortIndexOutput] = false;
-    mCodec->mEnqueuedBuffers = 0;
 }
 
 bool ACodec::FlushingState::onMessageReceived(const sp<AMessage> &msg) {
