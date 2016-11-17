@@ -1832,6 +1832,10 @@ status_t FslExtractor::ParseAudio(uint32 index, uint32 type,uint32 subtype)
         max_size = 262144; //enlarge buffer size to 256*1024 for ape audio
         meta->setInt32(kKeyMaxInputSize, max_size);
     }
+    else if(type == AUDIO_MP3){
+        max_size = 8192;
+        meta->setInt32(kKeyMaxInputSize, max_size);
+    }
 
     if(type == AUDIO_WMA){
         int32_t wmaType = 0;
