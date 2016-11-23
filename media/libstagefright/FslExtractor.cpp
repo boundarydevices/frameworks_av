@@ -1787,6 +1787,7 @@ status_t FslExtractor::ParseAudio(uint32 index, uint32 type,uint32 subtype)
             return UNKNOWN_ERROR;
     }
     if(IParser->getLanguage) {
+        memset(language, 0, sizeof(language)/sizeof(language[0]));
         err = IParser->getLanguage(parserHandle, index, &language[0]);
         ALOGI("audio track %u, lanuage: %s\n", index, language);
     }
@@ -1971,8 +1972,9 @@ status_t FslExtractor::ParseText(uint32 index, uint32 type,uint32 subtype)
         return UNKNOWN_ERROR;
 
     if(IParser->getLanguage) {
+        memset(language, 0, sizeof(language)/sizeof(language[0]));
         err = IParser->getLanguage(parserHandle, index, &language[0]);
-        ALOGI("test track %u, lanuage: %s\n", index, language);
+        ALOGI("text track %u, lanuage: %s\n", index, language);
     }
     else
         strcpy((char*)&language, "unknown");
