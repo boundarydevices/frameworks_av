@@ -375,7 +375,9 @@ void NuPlayer::RTSPSource::checkBuffering(
             ++overflowCount;
             ++finishedCount;
         } else {
-            if (bufferedDurationUs < kUnderflowMarkUs) {
+            int64_t mediaDurationUs = 0;
+            getDuration(&mediaDurationUs);
+            if (bufferedDurationUs < kUnderflowMarkUs && !src->isFinished(mediaDurationUs)) {
                 ++underflowCount;
             }
             if (bufferedDurationUs > kOverflowMarkUs) {
