@@ -819,6 +819,7 @@ FslExtractor::FslExtractor(const sp<DataSource> &source,const char *mime)
     currentVideoTs = 0;
     currentAudioTs = 0;
     mVideoActived = false;
+    bWaitForAudioStartTime = false;
 
     ALOGD("FslExtractor::FslExtractor mime=%s",mMime);
 }
@@ -2210,8 +2211,10 @@ status_t FslExtractor::HandleSeekOperation(uint32_t index,int64_t * ts,uint32_t 
 
     if(pInfo->type == MEDIA_VIDEO)
         currentVideoTs = target;
-    else if(pInfo->type == MEDIA_AUDIO)
+    else if(pInfo->type == MEDIA_AUDIO) {
         currentAudioTs = target;
+        bWaitForAudioStartTime = true;
+    }
 
     ALOGD("HandleSeekOperation index=%d,ts=%" PRId64 ",flag=%x",index,*ts,flag);
     return OK;
@@ -2381,6 +2384,12 @@ status_t FslExtractor::GetNextSample(uint32_t index,bool is_sync)
                 if(pInfo->outTs >= 0 && pInfo->outTs < currentAudioTs && mVideoActived == true){
                     ALOGV("drop audio after seek ts= %" PRId64 ",audio_ts= %" PRId64 "",pInfo->outTs,currentAudioTs);
                     add = false;
+                } else if(pInfo->outTs == -1 && bWaitForAudioStartTime == true) {
+                    // drop audio as invalid start time after seek
+                    add = false;
+                } else if (bWaitForAudioStartTime == true) {
+                    // get audio start time
+                    bWaitForAudioStartTime = false;
                 }
             }
         }
