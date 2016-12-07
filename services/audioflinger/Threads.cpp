@@ -4892,7 +4892,9 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::DirectOutputThread::prep
         }
 
         Track* const track = t.get();
+#ifdef VERY_VERY_VERBOSE_LOGGING
         audio_track_cblk_t* cblk = track->cblk();
+#endif
         // Only consider last track started for volume and mixer state control.
         // In theory an older track could underrun and restart after the new one starts
         // but as we only care about the transition phase between two tracks on a
@@ -5053,8 +5055,6 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::DirectOutputThread::prep
                     // it will then automatically call start() when data is available
                     track->disable();
                 } else if (last) {
-                    android_atomic_or(CBLK_DISABLED, &cblk->mFlags);
-                } else if (i == (count -1)){
                     ALOGW("pause because of UNDERRUN, framesReady = %zu,"
                             "minFrames = %u, mFormat = %#x",
                             track->framesReady(), minFrames, mFormat);
