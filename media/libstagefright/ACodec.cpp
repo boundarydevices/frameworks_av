@@ -1064,10 +1064,27 @@ status_t ACodec::configureOutputBuffersFromNativeWindow(
     //    the consumer
     //    plus an extra buffer to account for incorrect minUndequeuedBufs
 
-    // XXX: Is this the right logic to use?  It's not clear to me what the OMX
-    // buffer counts refer to - how do they account for the renderer holding on
-    // to buffers?
-    for (OMX_U32 extraBuffers = 2 + 1; /* condition inside loop */; extraBuffers--) {
+    OMX_U32 extraBuffers = 3;
+
+    // Vpu allocates physically contigous buffer, a large buffer number may lead to failure in
+    // following CTS:
+    // DecodeAccuracyTest#testH264GLViewLargerHeightVideoDecode fails because cma allocation
+    // is slowed down after running many test cases.
+    // So decrease extra buffer number to a minimum value:
+    //                                          *minUndequeuedBuffers + extraBuffers <= 3
+
+    int32_t adaptive_playback = 0;
+    mInputFormat->findInt32("adaptive-playback", &adaptive_playback);
+    ALOGD("adaptive-playback is %d", adaptive_playback);
+
+    bool hardwareDecoding = !strncmp(mComponentName.c_str(), "OMX.Freescale.std.video_decoder", 31)
+                          && strstr(mComponentName.c_str(),"hw-based");
+
+    if(hardwareDecoding && adaptive_playback){
+        extraBuffers = *minUndequeuedBuffers<3 ? 3 - *minUndequeuedBuffers : 0;
+    }
+
+    for (; /* condition inside loop */; extraBuffers--) {
         OMX_U32 newBufferCount =
             def.nBufferCountMin + *minUndequeuedBuffers + extraBuffers;
         def.nBufferCountActual = newBufferCount;
