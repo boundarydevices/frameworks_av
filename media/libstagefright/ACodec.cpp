@@ -2204,6 +2204,7 @@ status_t ACodec::configureCodec(
         }
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) {
         int32_t numChannels, sampleRate;
+        int32_t streaming = 0;
         if (!msg->findInt32("channel-count", &numChannels)
                 || !msg->findInt32("sample-rate", &sampleRate)) {
             // Since we did not always check for these, leave them optional
@@ -2214,6 +2215,13 @@ status_t ACodec::configureCodec(
                     encoder ? kPortIndexInput : kPortIndexOutput,
                     sampleRate,
                     numChannels);
+        }
+        if(!msg->findInt32("streaming", &streaming))
+            streaming = 0;
+        if(err == OK && !encoder && streaming){
+            OMX_DECODE_MODE mode = DEC_STREAM_MODE;
+            mOMX->setParameter(mNode, OMX_IndexParamDecoderPlayMode, &mode, sizeof(OMX_DECODE_MODE));
+            ALOGV("enable DEC_STREAM_MODE for mepg audio");
         }
     } else if ((!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC)) || (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC_FSL))) {
         int32_t numChannels, sampleRate;

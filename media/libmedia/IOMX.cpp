@@ -26,6 +26,7 @@
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/openmax/OMX_IndexExt.h>
 #include <utils/NativeHandle.h>
+#include <media/openmax/OMX_Implement.h>
 
 namespace android {
 
@@ -742,8 +743,10 @@ status_t BnOMX::onTransact(
             size_t pageSize = 0;
             size_t allocSize = 0;
             bool isUsageBits = (index == (OMX_INDEXTYPE) OMX_IndexParamConsumerUsageBits);
+
             if ((isUsageBits && size < 4) ||
-                    (!isUsageBits && code != SET_INTERNAL_OPTION && size < 8)) {
+                    (!isUsageBits && code != SET_INTERNAL_OPTION
+                    && index != (OMX_INDEXTYPE)OMX_IndexParamDecoderPlayMode && size < 8)) {
                 // we expect the structure to contain at least the size and
                 // version, 8 bytes total
                 ALOGE("b/27207275 (%zu) (%d/%d)", size, int(index), int(code));
@@ -767,6 +770,7 @@ status_t BnOMX::onTransact(
                         OMX_U32 declaredSize = *(OMX_U32*)params;
                         if (code != SET_INTERNAL_OPTION &&
                                 index != (OMX_INDEXTYPE) OMX_IndexParamConsumerUsageBits &&
+                                index != (OMX_INDEXTYPE)OMX_IndexParamDecoderPlayMode &&
                                 declaredSize > size) {
                             // the buffer says it's bigger than it actually is
                             ALOGE("b/27207275 (%u/%zu)", declaredSize, size);
