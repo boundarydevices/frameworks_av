@@ -491,6 +491,43 @@ static bool TryMpegType(const sp<DataSource> &source,String8 *mimeType,float *co
     free(buf);
     return false;
 }
+
+static bool TryFlacType(const sp<DataSource> &source, String8 *mimeType, float *confidence)
+{
+    char buf[10];
+    int size = sizeof(buf)/sizeof(buf[0]);
+    int syncWordSize = 4;  //'fLaC'
+
+    if (source->readAt(0, buf, size) < size)
+        return false;
+
+    if (buf[0] == 'I' && buf[1] == 'D' && buf[2] == '3') {
+        // Skip the ID3v2 header.
+        uint32_t Id3Size;
+        uint32_t len = ((buf[6] & 0x7f) << 21)
+                    | ((buf[7] & 0x7f) << 14)
+                    | ((buf[8] & 0x7f) << 7)
+                    | (buf[9] & 0x7f);
+
+        if (len > 3 * 1024 * 1024)
+            len = 3 * 1024 * 1024;
+
+        len += 10;
+        Id3Size = len;
+
+        memset(buf, 0, sizeof(buf));
+        if (source->readAt(Id3Size, buf, syncWordSize) < syncWordSize)
+            return false;
+    }
+
+    if (buf[0] == 'f' && buf[1] == 'L' && buf[2] == 'a' && buf[3] == 'C') {
+        *mimeType = MEDIA_MIMETYPE_AUDIO_FLAC;
+        *confidence = 0.5;
+        return true;
+    }
+    return false;
+}
+
 typedef bool (*TRYTYPEFUNC)(char* buffer,size_t len,String8 *mimeType,float *confidence);
 
 static TRYTYPEFUNC TryFunc[] = {
@@ -517,6 +554,8 @@ bool SniffFSL(
     }
 
     if(TryMpegType(source,mimeType,confidence))
+        return true;
+    else if (TryFlacType(source,mimeType,confidence))
         return true;
 
     return false;
