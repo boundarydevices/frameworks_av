@@ -1068,19 +1068,15 @@ status_t ACodec::configureOutputBuffersFromNativeWindow(
 
     // Vpu allocates physically contigous buffer, a large buffer number may lead to failure in
     // following CTS:
-    // DecodeAccuracyTest#testH264GLViewLargerHeightVideoDecode fails because cma allocation
-    // is slowed down after running many test cases.
-    // So decrease extra buffer number to a minimum value:
+    //   DecodeAccuracyTest#testH264GLViewLargerHeightVideoDecode
+    //   EncodeVirtualDisplayWithCompositionTest#testRenderingMaxResolutionLocally
+    // So give extra buffer number an upper limitation:
     //                                          *minUndequeuedBuffers + extraBuffers <= 3
-
-    int32_t adaptive_playback = 0;
-    mInputFormat->findInt32("adaptive-playback", &adaptive_playback);
-    ALOGD("adaptive-playback is %d", adaptive_playback);
 
     bool hardwareDecoding = !strncmp(mComponentName.c_str(), "OMX.Freescale.std.video_decoder", 31)
                           && strstr(mComponentName.c_str(),"hw-based");
 
-    if(hardwareDecoding && adaptive_playback){
+    if(hardwareDecoding){
         extraBuffers = *minUndequeuedBuffers<3 ? 3 - *minUndequeuedBuffers : 0;
     }
 
