@@ -1654,7 +1654,7 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
     meta->setInt64(kKeyDuration, duration);
 
     // stagefright uses framerate only in MPEG4 extractor, let fslextrator be same with it
-    if(fps > 0 && !strcmp(mMime, MEDIA_MIMETYPE_VIDEO_MPEG4))
+    if(fps > 0 && !strcmp(mMime, MEDIA_MIMETYPE_CONTAINER_MPEG4))
         meta->setInt32(kKeyFrameRate, fps);
     if(rotation > 0)
         meta->setInt32(kKeyRotation, rotation);
