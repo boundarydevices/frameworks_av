@@ -187,6 +187,7 @@ private:
     bool isTrackModeParser();
     status_t convertPCMData(sp<ABuffer> inBuffer, sp<ABuffer> outBuffer, int32_t bitPerSample);
     status_t SetMkvCrpytBufferInfo(TrackInfo *pInfo, MediaBuffer *mbuf);
+    bool ConvertMp4TimeToString(uint64 inTime, String8 *s);
     FslExtractor(const FslExtractor &);
     FslExtractor &operator=(const FslExtractor &);
 };

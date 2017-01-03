@@ -1364,12 +1364,13 @@ status_t FslExtractor::ParseMetaData()
         { kKeyLocation, USER_DATA_LOCATION},
         //{ (char *)"totaltracknumber", USER_DATA_TOTALTRACKNUMBER},
         { kKeyDiscNumber, USER_DATA_DISCNUMBER},
-        { kKeyDate, USER_DATA_CREATION_DATE},
+        { kKeyYear, USER_DATA_CREATION_DATE},//map data to year for id3 parser & mp4 parser.
         { kKeyCompilation, USER_DATA_COMPILATION},
         { kKeyAlbumArtist, USER_DATA_ALBUMARTIST},
         { kKeyAuthor, USER_DATA_AUTHOR},
         { kKeyEncoderDelay,USER_DATA_AUD_ENC_DELAY},
         { kKeyEncoderPadding,USER_DATA_AUD_ENC_PADDING},
+        { kKeyDate, USER_DATA_MP4_CREATION_TIME},//only get from mp4 parser.
     };
     uint32_t kNumMapEntries = sizeof(kKeyMap) / sizeof(kKeyMap[0]);
 
@@ -1392,10 +1393,21 @@ status_t FslExtractor::ParseMetaData()
                 mFileMetaData->setCString(kKeyMap[i].tag, (const char*)metaData);
                 ALOGI("FslParser Key: %d\t format=%d,size=%d,Value: %s\n",
                     kKeyMap[i].key,userDataFormat,(int)metaDataSize,metaData);
-            }else if((metaData != NULL) && ((int)metaDataSize > 0) && USER_DATA_FORMAT_INT_LE == userDataFormat){
-                mFileMetaData->setInt32(kKeyMap[i].tag, *(int*)metaData);
+            }else if((metaData != NULL) && ((int32)metaDataSize > 0) && USER_DATA_FORMAT_INT_LE == userDataFormat){
+                if(metaDataSize == 4)
+                    mFileMetaData->setInt32(kKeyMap[i].tag, *(int32*)metaData);
                 ALOGI("FslParser Key2: %d\t format=%d,size=%d,Value: %d\n",
-                    kKeyMap[i].key,userDataFormat,(int)metaDataSize,*(int*)metaData);
+                    kKeyMap[i].key,userDataFormat,(int)metaDataSize,*(int32*)metaData);
+            }else if((metaData != NULL) && ((int32)metaDataSize > 0) && USER_DATA_FORMAT_UINT_LE == userDataFormat){
+                if(USER_DATA_MP4_CREATION_TIME == kKeyMap[i].key && metaDataSize == 8){
+                    uint64 data = *(uint64*)metaData;
+                    String8 str;
+                    if(ConvertMp4TimeToString(data,&str)){
+                        mFileMetaData->setCString(kKeyMap[i].tag, str.string());
+                        ALOGI("FslParser kKeyDate=%s",str.string());
+                    }
+
+                }
             }
         }
 
@@ -2560,5 +2572,32 @@ status_t FslExtractor::SetMkvCrpytBufferInfo(TrackInfo *pInfo, MediaBuffer *buf)
     }
 
     return OK;
+}
+#define DELTA_TIME (24 * 3600 * (66*365 + 17))//seconds passed from Jan,1,1904 to Jan,1,1970
+bool FslExtractor::ConvertMp4TimeToString(uint64 inTime, String8 *s) {
+
+    time_t time2 = 0;
+    struct tm * tms = NULL;
+    char str[32];
+    size_t strLen = 0;
+
+    //according to spec, creation time is an unsinged int64 value.
+    if((int64_t)inTime < DELTA_TIME + INT64_MIN)
+        return false;
+
+    // google's cts test want to return 1904 year and 1970 year, so time2 may be negative
+    time2 = (int64_t)inTime - DELTA_TIME;
+
+    tms = gmtime(&time2);
+    if(tms != NULL){
+        strLen = strftime(str, sizeof(str), "%Y%m%dT%H%M%S.000Z", tms);
+    }
+
+    if(strLen > 0){
+        s->setTo(str);
+        return true;
+    }
+
+    return false;
 }
 }// namespace android
