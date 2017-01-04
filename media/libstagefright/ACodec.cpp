@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
- * Copyright (C) 2012-2016 Freescale Semiconductor, Inc.
+ * Copyright (C) 2012-2017 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -5503,8 +5503,8 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
                                 "crop",
                                 rect.nLeft,
                                 rect.nTop,
-                                rect.nLeft + rect.nWidth - 1,
-                                rect.nTop + rect.nHeight - 1);
+                                rect.nLeft + (int32_t)rect.nWidth - 1,
+                                rect.nTop + (int32_t)rect.nHeight - 1);
 
                         width = rect.nWidth;
                         height = rect.nHeight;

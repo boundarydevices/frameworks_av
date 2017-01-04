@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
+/* Copyright (C) 2016-2017 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "GenericSource"
 
@@ -509,6 +509,9 @@ void NuPlayer::GenericSource::onPrepareAsync() {
     } else {
         finishPrepareAsync();
     }
+
+    if(isRTPUDP)
+        notifyPrepared();
 }
 
 void NuPlayer::GenericSource::onSecureDecodersInstantiated(status_t err) {
