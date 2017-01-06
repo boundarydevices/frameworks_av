@@ -221,6 +221,8 @@ private:
     bool mStreaming;
     bool mRendering;
 
+    bool bNuPlayerStreamingSource;
+
     inline const sp<DecoderBase> &getDecoder(bool audio) {
         return audio ? mAudioDecoder : mVideoDecoder;
     }
