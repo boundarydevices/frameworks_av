@@ -16,6 +16,7 @@
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/AUtils.h>
+#include <media/stagefright/foundation/ColorUtils.h>
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/MediaBufferGroup.h>
 #include <media/stagefright/MediaDefs.h>
@@ -1138,6 +1139,12 @@ status_t FslExtractor::CreateParserInterface()
             err = PARSER_SUCCESS;
         }
 
+        err = myQueryInterface(PARSER_API_GET_VIDEO_COLOR_INFO, (void **)&IParser->getVideoColorInfo);
+        if(err){
+            IParser->getVideoColorInfo = NULL;
+            err = PARSER_SUCCESS;
+        }
+
         //audio properties
         err = myQueryInterface(PARSER_API_GET_AUDIO_NUM_CHANNELS, (void **)&IParser->getAudioNumChannels);
         if(err)
@@ -1583,6 +1590,7 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
             return UNKNOWN_ERROR;
         }
     }
+
     ALOGI("ParseVideo width=%u,height=%u,fps=%u,rotate=%u",width,height,fps,rotation);
 
     sp<MetaData> meta = new MetaData;
@@ -1694,6 +1702,32 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
                 }
                 pItem = pItem->nextItemPtr;
             }
+        }
+    }
+
+    if(IParser->getVideoColorInfo){
+        int32 primaries = 0;
+        int32 transfer = 0;
+        int32 matrix = 0;
+        int32 full_range = 0;
+        err = IParser->getVideoColorInfo(parserHandle, index, &primaries,&transfer,&matrix,&full_range);
+
+        if(err == PARSER_SUCCESS)
+            ALOGI("get color info, %d,%d,%d,%d\n", primaries, transfer, matrix, full_range);
+        else //failed if no color info provided
+            err = PARSER_SUCCESS;
+
+        ColorAspects aspects;
+        ColorUtils::convertIsoColorAspectsToCodecAspects(
+                primaries, transfer, matrix, full_range, aspects);
+
+        // only store the first color specification
+        if (!meta->hasData(kKeyColorPrimaries)) {
+            ALOGI("parseColorInfo kKeyColorPrimaries=%d",aspects.mPrimaries);
+            meta->setInt32(kKeyColorPrimaries, aspects.mPrimaries);
+            meta->setInt32(kKeyTransferFunction, aspects.mTransfer);
+            meta->setInt32(kKeyColorMatrix, aspects.mMatrixCoeffs);
+            meta->setInt32(kKeyColorRange, aspects.mRange);
         }
     }
 
