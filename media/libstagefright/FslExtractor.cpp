@@ -1,5 +1,6 @@
 /**
- *  Copyright (C) 2016 Freescale Semiconductor, Inc.
+ *  Copyright 2016 Freescale Semiconductor, Inc.
+ *  Copyright 2017 NXP
  *  All Rights Reserved.
  *
  *  The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -1145,6 +1146,12 @@ status_t FslExtractor::CreateParserInterface()
             err = PARSER_SUCCESS;
         }
 
+        err = myQueryInterface(PARSER_API_GET_VIDEO_HDR_COLOR_INFO, (void **)&IParser->getVideoHDRColorInfo);
+        if(err){
+            IParser->getVideoHDRColorInfo = NULL;
+            err = PARSER_SUCCESS;
+        }
+
         //audio properties
         err = myQueryInterface(PARSER_API_GET_AUDIO_NUM_CHANNELS, (void **)&IParser->getAudioNumChannels);
         if(err)
@@ -1712,23 +1719,37 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
         int32 full_range = 0;
         err = IParser->getVideoColorInfo(parserHandle, index, &primaries,&transfer,&matrix,&full_range);
 
-        if(err == PARSER_SUCCESS)
+        if(err == PARSER_SUCCESS){
+            ColorAspects aspects;
+            ColorUtils::convertIsoColorAspectsToCodecAspects(
+                    primaries, transfer, matrix, full_range, aspects);
+
+            // only store the first color specification
+            if (!meta->hasData(kKeyColorPrimaries)) {
+                ALOGI("parseColorInfo kKeyColorPrimaries=%d",aspects.mPrimaries);
+                meta->setInt32(kKeyColorPrimaries, aspects.mPrimaries);
+                meta->setInt32(kKeyTransferFunction, aspects.mTransfer);
+                meta->setInt32(kKeyColorMatrix, aspects.mMatrixCoeffs);
+                meta->setInt32(kKeyColorRange, aspects.mRange);
+            }
             ALOGI("get color info, %d,%d,%d,%d\n", primaries, transfer, matrix, full_range);
-        else //failed if no color info provided
+        }else //failed if no color info provided
             err = PARSER_SUCCESS;
 
-        ColorAspects aspects;
-        ColorUtils::convertIsoColorAspectsToCodecAspects(
-                primaries, transfer, matrix, full_range, aspects);
+    }
 
-        // only store the first color specification
-        if (!meta->hasData(kKeyColorPrimaries)) {
-            ALOGI("parseColorInfo kKeyColorPrimaries=%d",aspects.mPrimaries);
-            meta->setInt32(kKeyColorPrimaries, aspects.mPrimaries);
-            meta->setInt32(kKeyTransferFunction, aspects.mTransfer);
-            meta->setInt32(kKeyColorMatrix, aspects.mMatrixCoeffs);
-            meta->setInt32(kKeyColorRange, aspects.mRange);
-        }
+    if(IParser->getVideoHDRColorInfo){
+        VideoHDRColorInfo info;
+        memset(&info,0,sizeof(VideoHDRColorInfo));
+
+        err = IParser->getVideoHDRColorInfo(parserHandle, index, &info);
+        if(err == PARSER_SUCCESS){
+            err = SetMkvHDRColorInfoMetadata(&info,meta);
+        }else //failed if no hdr color info provided
+            err = PARSER_SUCCESS;
+
+        if(meta->hasData(kKeyHdrStaticInfo))
+            ALOGI("set kKeyHdrStaticInfo");
     }
 
     mTracks.push();
@@ -2633,5 +2654,72 @@ bool FslExtractor::ConvertMp4TimeToString(uint64 inTime, String8 *s) {
     }
 
     return false;
+}
+status_t FslExtractor::SetMkvHDRColorInfoMetadata(VideoHDRColorInfo *pInfo,sp<MetaData> meta)
+{
+    HDRStaticInfo targetInfo;
+    bool update = false;
+
+    if(pInfo == NULL || meta == NULL)
+        return UNKNOWN_ERROR;
+
+    memset(&targetInfo,0,sizeof(HDRStaticInfo));
+    if(pInfo->maxCLL > 0 || pInfo->maxFALL > 0){
+        targetInfo.sType1.mMaxContentLightLevel = pInfo->maxCLL;
+        targetInfo.sType1.mMaxFrameAverageLightLevel = pInfo->maxFALL;
+        update = true;
+    }
+
+    if(pInfo->hasMasteringMetadata){
+        //use timescale 50000
+        #define HDR_TIMESCALE 50000
+        if((pInfo->PrimaryRChromaticityX >= 0 && pInfo->PrimaryRChromaticityX <=1)
+            && (pInfo->PrimaryRChromaticityY >= 0 && pInfo->PrimaryRChromaticityY <=1)
+            && (pInfo->PrimaryGChromaticityX >= 0 && pInfo->PrimaryGChromaticityX <=1)
+            && (pInfo->PrimaryGChromaticityY >= 0 && pInfo->PrimaryGChromaticityY <=1)
+            && (pInfo->PrimaryBChromaticityX >= 0 && pInfo->PrimaryBChromaticityX <=1)
+            && (pInfo->PrimaryBChromaticityY >= 0 && pInfo->PrimaryBChromaticityY <=1)){
+
+            targetInfo.sType1.mR.x = (uint16_t)(pInfo->PrimaryRChromaticityX * HDR_TIMESCALE + 0.5);
+            targetInfo.sType1.mR.y = (uint16_t)(pInfo->PrimaryRChromaticityY * HDR_TIMESCALE + 0.5);
+            targetInfo.sType1.mG.x = (uint16_t)(pInfo->PrimaryGChromaticityX * HDR_TIMESCALE + 0.5);
+            targetInfo.sType1.mG.y = (uint16_t)(pInfo->PrimaryGChromaticityY * HDR_TIMESCALE + 0.5);
+            targetInfo.sType1.mB.x = (uint16_t)(pInfo->PrimaryBChromaticityX * HDR_TIMESCALE + 0.5);
+            targetInfo.sType1.mB.y = (uint16_t)(pInfo->PrimaryBChromaticityY * HDR_TIMESCALE + 0.5);
+            update = true;
+            ALOGI("get HDR RGB=(%d,%d),(%d,%d),(%d,%d)",targetInfo.sType1.mR.x,targetInfo.sType1.mR.y,
+                targetInfo.sType1.mG.x,targetInfo.sType1.mG.y,
+                targetInfo.sType1.mB.x,targetInfo.sType1.mB.y);
+        }
+
+        if((pInfo->WhitePointChromaticityX >= 0 && pInfo->WhitePointChromaticityX <=1) &&
+            (pInfo->WhitePointChromaticityY >= 0 && pInfo->WhitePointChromaticityY <=1)){
+            targetInfo.sType1.mW.x = (uint16_t)(pInfo->WhitePointChromaticityX *HDR_TIMESCALE + 0.5);
+            targetInfo.sType1.mW.y = (uint16_t)(pInfo->WhitePointChromaticityY *HDR_TIMESCALE + 0.5);
+            update = true;
+            ALOGI("WhitePoint=(%d,%d)",targetInfo.sType1.mW.x,targetInfo.sType1.mW.y);
+        }
+
+        if(pInfo->LuminanceMax < 65535.5){
+            targetInfo.sType1.mMaxDisplayLuminance = (uint16_t)(pInfo->LuminanceMax + 0.5);
+            if(targetInfo.sType1.mMaxDisplayLuminance < 1)
+                targetInfo.sType1.mMaxDisplayLuminance = 1;
+            update = true;
+            ALOGI("mMaxDisplayLuminance=%d",targetInfo.sType1.mMaxDisplayLuminance);
+        }
+        if(pInfo->LuminanceMin < 6.5535){
+            targetInfo.sType1.mMinDisplayLuminance = (uint16_t)(pInfo->LuminanceMin * 10000 + 0.5);
+            if(targetInfo.sType1.mMinDisplayLuminance < 1)
+                targetInfo.sType1.mMinDisplayLuminance = 1;
+            update = true;
+            ALOGI("mMinDisplayLuminance=%d",targetInfo.sType1.mMinDisplayLuminance);
+        }
+    }
+
+    if(update){
+        targetInfo.mID = HDRStaticInfo::kType1;
+        meta->setData(kKeyHdrStaticInfo, 'hdrS', &targetInfo, sizeof(targetInfo));
+    }
+    return OK;
 }
 }// namespace android

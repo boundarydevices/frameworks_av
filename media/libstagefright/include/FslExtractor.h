@@ -1,5 +1,6 @@
 /**
- *  Copyright (C) 2016 Freescale Semiconductor, Inc.
+ *  Copyright 2016 Freescale Semiconductor, Inc.
+ *  Copyright 2017 NXP
  *  All Rights Reserved.
  *
  *  The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -70,6 +71,7 @@ typedef struct
     FslParserGetVideoFrameRate          getVideoFrameRate;
     FslParserGetVideoFrameRotation      getVideoFrameRotation;
     FslParserGetVideoColorInfo          getVideoColorInfo;
+    FslParserGetVideoHDRColorInfo       getVideoHDRColorInfo;
 
     /* audio properties */
     FslParserGetAudioNumChannels        getAudioNumChannels;
@@ -189,6 +191,7 @@ private:
     status_t convertPCMData(sp<ABuffer> inBuffer, sp<ABuffer> outBuffer, int32_t bitPerSample);
     status_t SetMkvCrpytBufferInfo(TrackInfo *pInfo, MediaBuffer *mbuf);
     bool ConvertMp4TimeToString(uint64 inTime, String8 *s);
+    status_t SetMkvHDRColorInfoMetadata(VideoHDRColorInfo *pInfo, sp<MetaData> meta);
     FslExtractor(const FslExtractor &);
     FslExtractor &operator=(const FslExtractor &);
 };
