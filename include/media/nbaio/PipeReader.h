@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 The Android Open Source Project
+ * Copyright 2017 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +48,7 @@ public:
 
     virtual ssize_t read(void *buffer, size_t count);
 
+    virtual void setDiscardFramesOnOverrun(size_t discardFrames);
     // NBAIO_Source end
 
 #if 0   // until necessary
@@ -58,6 +60,7 @@ private:
     int32_t     mFront;         // follows behind mPipe.mRear
     int64_t     mFramesOverrun;
     int64_t     mOverruns;
+    size_t      mDiscardFramesOnOverrun;
 };
 
 }   // namespace android

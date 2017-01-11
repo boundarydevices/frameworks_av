@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 The Android Open Source Project
+ * Copyright 2017 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +32,7 @@ PipeReader::PipeReader(Pipe& pipe) :
         mFramesOverrun(0),
         mOverruns(0)
 {
+    mDiscardFramesOnOverrun = mPipe.mMaxFrames >> 4;
     android_atomic_inc(&pipe.mReaders);
 }
 
@@ -53,10 +55,11 @@ ssize_t PipeReader::availableToRead()
     int32_t rear = android_atomic_acquire_load(&mPipe.mRear);
     // read() is not multi-thread safe w.r.t. itself, so no mutex or atomic op needed to read mFront
     size_t avail = rear - mFront;
+
     if (CC_UNLIKELY(avail > mPipe.mMaxFrames)) {
         // Discard 1/16 of the most recent data in pipe to avoid another overrun immediately
         int32_t oldFront = mFront;
-        mFront = rear - mPipe.mMaxFrames + (mPipe.mMaxFrames >> 4);
+        mFront = rear - mPipe.mMaxFrames + mDiscardFramesOnOverrun;
         mFramesOverrun += (size_t) (mFront - oldFront);
         ++mOverruns;
         return OVERRUN;
@@ -95,6 +98,11 @@ ssize_t PipeReader::read(void *buffer, size_t count)
     mFront += red;
     mFramesRead += red;
     return red;
+}
+
+void PipeReader::setDiscardFramesOnOverrun(size_t discardFrames)
+{
+    mDiscardFramesOnOverrun = (discardFrames < mPipe.mMaxFrames) ? discardFrames : mPipe.mMaxFrames;
 }
 
 }   // namespace android

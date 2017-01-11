@@ -2,6 +2,7 @@
 **
 ** Copyright 2012, The Android Open Source Project
 ** Copyright (C) 2013-2016 Freescale Semiconductor, Inc.
+** Copyright 2017 NXP
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -6015,6 +6016,7 @@ AudioFlinger::RecordThread::RecordThread(const sp<AudioFlinger>& audioFlinger,
         numCounterOffers = 0;
         index = pipeReader->negotiate(offers, 1, NULL, numCounterOffers);
         ALOG_ASSERT(index == 0);
+        pipeReader->setDiscardFramesOnOverrun(mFrameCount);
         mPipeSource = pipeReader;
         mPipeFramesP2 = pipeFramesP2;
         mPipeMemory = pipeMemory;
