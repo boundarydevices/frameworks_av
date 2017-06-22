@@ -43,6 +43,7 @@ SoftRaw::SoftRaw(
       mSignalledError(false),
       mChannelCount(2),
       mSampleRate(44100),
+      mEndian(OMX_EndianLittle),
       mNumericalData(OMX_NumericalDataSigned),
       mBitsPerSample(16) {
     initPorts();
@@ -123,6 +124,7 @@ OMX_ERRORTYPE SoftRaw::internalGetParameter(
 
             pcmParams->nChannels = mChannelCount;
             pcmParams->nSamplingRate = mSampleRate;
+            pcmParams->eEndian = mEndian;
 
             return OMX_ErrorNone;
         }
@@ -170,6 +172,7 @@ OMX_ERRORTYPE SoftRaw::internalSetParameter(
             mSampleRate = pcmParams->nSamplingRate;
             mNumericalData = pcmParams->eNumData;
             mBitsPerSample = pcmParams->nBitPerSample;
+            mEndian = pcmParams->eEndian;
 
             return OMX_ErrorNone;
         }
@@ -204,9 +207,31 @@ void SoftRaw::onQueueFilled(OMX_U32 /* portIndex */) {
         OMX_BUFFERHEADERTYPE *outHeader = outInfo->mHeader;
 
         CHECK_GE(outHeader->nAllocLen, inHeader->nFilledLen);
-        memcpy(outHeader->pBuffer,
-               inHeader->pBuffer + inHeader->nOffset,
-               inHeader->nFilledLen);
+
+        if(mEndian == OMX_EndianBig)
+        {
+            OMX_S16 *pSrc = (OMX_S16 *)(inHeader->pBuffer + inHeader->nOffset);
+            OMX_S16 *pDst = (OMX_S16 *)outHeader->pBuffer;
+            OMX_S16 Tmp;
+            OMX_U32 i, j, Len;
+            OMX_U32 nChannels = mChannelCount;
+
+            Len = inHeader->nFilledLen / nChannels / 2 /*sample size*/;
+
+            for (i = 0; i < Len; i ++)
+            {
+                for (j = 0; j < nChannels; j ++)
+                {
+                    Tmp = pSrc[i*nChannels+j];
+                    Tmp = ((((OMX_U16)Tmp)&0xFF)<<8) | ((((OMX_U16)Tmp)&0xFF00)>>8);
+                    pDst[i*nChannels+j] = Tmp;
+                }
+            }
+        }
+        else
+            memcpy(outHeader->pBuffer,
+                   inHeader->pBuffer + inHeader->nOffset,
+                   inHeader->nFilledLen);
 
         outHeader->nFlags = inHeader->nFlags;
         outHeader->nOffset = 0;
