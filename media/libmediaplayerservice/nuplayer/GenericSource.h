@@ -36,6 +36,7 @@ struct IMediaHTTPService;
 struct MediaSource;
 class MediaBuffer;
 struct NuCachedSource2;
+class IMediaExtractor;
 
 struct NuPlayer::GenericSource : public NuPlayer::Source,
                                  public MediaBufferObserver // Modular DRM
@@ -250,7 +251,7 @@ private:
 
     sp<ALooper> mLooper;
     sp<ALooper> mBufferingMonitorLooper;
-
+    sp<IMediaExtractor> mExtractor;
     enum {
     TextTrackType_3GPP = 0,
     TextTrackType_SRT,
