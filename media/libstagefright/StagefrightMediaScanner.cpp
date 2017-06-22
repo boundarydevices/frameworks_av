@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/* Copyright 2009-2016 Freescale Semiconductor, Inc. */
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "StagefrightMediaScanner"
@@ -40,7 +41,9 @@ static bool FileHasAcceptableExtension(const char *extension) {
         ".mpeg", ".ogg", ".mid", ".smf", ".imy", ".wma", ".aac",
         ".wav", ".amr", ".midi", ".xmf", ".rtttl", ".rtx", ".ota",
         ".mkv", ".mka", ".webm", ".ts", ".fl", ".flac", ".mxmf",
-        ".avi", ".mpeg", ".mpg", ".awb", ".mpga", ".mov"
+        ".avi", ".mpeg", ".mpg", ".awb", ".mpga",
+        ".divx", ".mov", ".m4v", ".adts", ".asf", ".wmv", ".vob",
+        ".f4v", ".flv", ".rmvb", ".rm", ".ra", ".rv", ".ape"
     };
     static const size_t kNumValidExtensions =
         sizeof(kValidExtensions) / sizeof(kValidExtensions[0]);
