@@ -27,6 +27,8 @@ cc_library_shared {
         "FileSource.cpp",
         "FLACExtractor.cpp",
         "FrameRenderTracker.cpp",
+        "FslInspector.cpp",
+        "FslExtractor.cpp",
         "HTTPBase.cpp",
         "HevcUtils.cpp",
         "JPEGSource.cpp",
@@ -70,6 +72,7 @@ cc_library_shared {
     include_dirs: [
         "frameworks/native/include/media/openmax",
         "frameworks/native/include/media/hardware",
+        "device/fsl-codec/ghdr/common",
     ],
 
     shared_libs: [

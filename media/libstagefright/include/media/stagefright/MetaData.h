@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/* Copyright (C) 2016 Freescale Semiconductor, Inc.*/
 
 #ifndef META_DATA_H_
 
@@ -209,6 +210,15 @@ enum {
                                    // color Matrix, value defined by ColorAspects.MatrixCoeffs.
     kKeyTemporalLayerId  = 'iLyr', // int32_t, temporal layer-id. 0-based (0 => base layer)
     kKeyTemporalLayerCount = 'cLyr', // int32_t, number of temporal layers encoded
+
+    kKeyIsADIF            = 'adif',  // bool (int32_t)
+    kKeySubFormat         = 'sFmt', // (int32_t)
+    kKeyCodecData         = 'cCdd', // raw data
+    kKeyBitPerSample         = 'bPsp', // (int32_t)
+    kKeyAudioBlockAlign         = 'aBan', // (int32_t)
+    kKeyBitsPerFrame            = 'bPfm',
+    kKeyIsEndianBig             = 'edbg', //bool (int32_t)
+    kKeySpecialThumbnail            = 'sThb',//int32_t
 };
 
 enum {
