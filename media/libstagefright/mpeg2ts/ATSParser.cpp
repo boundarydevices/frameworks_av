@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2013-2014 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "ATSParser"
 #include <utils/Log.h>
@@ -770,6 +770,8 @@ ATSParser::Stream::Stream(
             break;
 
         case STREAMTYPE_LPCM_AC3:
+            mode = ElementaryStreamQueue::PCM_AUDIO;
+            break;
         case STREAMTYPE_AC3:
         case STREAMTYPE_AC3_ENCRYPTED:
             mode = ElementaryStreamQueue::AC3;
@@ -1244,7 +1246,7 @@ status_t ATSParser::Stream::parsePES(ABitReader *br, SyncEvent *event) {
                      "payload. (numBitsLeft = %zu, required = %u)",
                      br->numBitsLeft(), dataLength * 8);
 
-                return ERROR_MALFORMED;
+                return OK;//ERROR_MALFORMED;
             }
 
             ALOGV("There's %u bytes of payload, PES_packet_length=%u, offset=%d",
