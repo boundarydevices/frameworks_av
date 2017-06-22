@@ -1,5 +1,6 @@
 /*
  * Copyright 2012, The Android Open Source Project
+ * Copyright (C) 2014 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +23,14 @@
 
 #include <media/stagefright/foundation/AHandler.h>
 #include <media/stagefright/foundation/ANetworkSession.h>
-
+#include <media/stagefright/foundation/ABuffer.h>
 #include <netinet/in.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/input.h>
+#include <dirent.h>
+#include <errno.h>
+#include <stdlib.h>
 
 #include <utils/String16.h>
 
@@ -46,8 +53,12 @@ struct WifiDisplaySource : public AHandler {
             const char *path = NULL);
 
     status_t start(const char *iface);
+    status_t parseUIBC(const uint8_t *d);
+    status_t onUIBCData(const sp<ABuffer> &buffer);
+    status_t startUibc(const int32_t port);
     status_t stop();
-
+    status_t sendtouchevent(int32_t action, int32_t x, int32_t y);
+    status_t sendkeyevent(int16_t action, int16_t keycode);
     status_t pause();
     status_t resume();
 
@@ -77,6 +88,7 @@ private:
     enum {
         kWhatStart,
         kWhatRTSPNotify,
+        kWhatUIBCNotify,
         kWhatStop,
         kWhatPause,
         kWhatResume,
@@ -126,7 +138,14 @@ private:
     AString mMediaPath;
     struct in_addr mInterfaceAddr;
     int32_t mSessionID;
+    int32_t mUibcSessionID;
 
+    int32_t mUibcTouchFd;
+    int32_t mUibcKeyFd;
+    int32_t mAbs_x_min;
+    int32_t mAbs_x_max;
+    int32_t mAbs_y_min;
+    int32_t mAbs_y_max;
     sp<AReplyToken> mStopReplyID;
 
     AString mWfdClientRtpPorts;
@@ -142,6 +161,7 @@ private:
 
     bool mSinkSupportsAudio;
 
+    bool mSinkSupportsUIBC;
     bool mUsingPCMAudio;
     int32_t mClientSessionID;
 
@@ -160,6 +180,22 @@ private:
 
     KeyedVector<ResponseID, HandleRTSPResponseFunc> mResponseHandlers;
 
+    //VideoResolution
+    size_t resolutionWidth;
+    size_t resolutionHeigh;
+
+    //UIBC Native and real resolution data
+    size_t mResolution_RealW;
+    size_t mResolution_RealH;
+    size_t mResolution_NativeW;
+    size_t mResolution_NativeH;
+
+    //UIBC calc data
+    float uibc_calc_data_Ss;
+    float uibc_calc_data_Wbs;
+    float uibc_calc_data_Hbs;
+    int32_t mUibcMouseID;
+
     // HDCP specific section >>>>
     bool mUsingHDCP;
     bool mIsHDCP2_0;
@@ -172,6 +208,18 @@ private:
 
     bool mPlaybackSessionEstablished;
 
+    //Parse UIBC data
+    void parseUIBCtouchEvent(const uint8_t *data);
+    void parseUIBCscrollEvent(const uint8_t *data);
+    void parseUIBCkeyEvent(const uint8_t *data);
+    void recalculateUibcParamaterViaOrientation();
+
+    uint8_t getOrientation();
+    uint8_t mOrientation;
+    size_t mVideoWidth;
+    size_t mVideoHeight;
+
+    bool checkUIBCtimeStamp(const uint8_t *data);
     status_t makeHDCP();
     // <<<< HDCP specific section
 
@@ -257,6 +305,9 @@ private:
     void scheduleReaper();
     void scheduleKeepAlive(int32_t sessionID);
 
+    //calc UIBC coordinate para
+    int calc_uibc_parameter(size_t witdh, size_t height);
+
     int32_t makeUniquePlaybackSessionID() const;
 
     sp<PlaybackSession> findPlaybackSession(
@@ -269,10 +320,33 @@ private:
     void finishStop2();
 
     void finishPlay();
-
+    int scan_dir(const char *dirname);
+    int open_dev(const char *deviceName);
+    int write_event(int fd, int type, int code, int value);
+    void calculateXY(float x, float y, int *abs_x, int *abs_y);
+    void calculateNormalXY(float x, float y, int *abs_x, int *abs_y);
+    int containsNonZeroByte(const uint8_t* array, uint32_t startIndex, uint32_t endIndex);
     DISALLOW_EVIL_CONSTRUCTORS(WifiDisplaySource);
 };
 
+    //UIBC magic numbers
+    const int32_t DEFAULT_UIBC_PORT = 7239;
+    const int16_t INPUT_CATEGORY_GENERIC = 0x00;
+    const int16_t INPUT_CATEGORY_HIDC = 0x01;
+    const int16_t TOUCH_ACTION_DOWN = 0;
+    const int16_t TOUCH_ACTION_UP = 1;
+    const int16_t TOUCH_ACTION_MOVE = 2;
+    const int16_t TOUCH_ACTION_CANCEL = 3;
+    const int16_t TOUCH_ACTION_POINTER_DOWN = 5;
+    const int16_t TOUCH_ACTION_POINTER_UP = 6;
+    const int16_t TOUCH_RANDOM_PRESSURE = 1234;
+    const int16_t KEY_ACTION_DOWN = 3;
+    const int16_t KEY_ACTION_UP = 4;
+    const int16_t MOUSE_WHEEL_SCROLL = 8;
+    const int16_t UIBC_MOUSE_VSCROLL = 6;
+    const int16_t UIBC_MOUSE_HSCROLL = 7;
+
+    const int16_t ANDROID_ACTION_SCROLL = 0x8;
 }  // namespace android
 
 #endif  // WIFI_DISPLAY_SOURCE_H_
