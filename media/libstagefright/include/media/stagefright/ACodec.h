@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/* Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
+ */
 
 #ifndef A_CODEC_H_
 #define A_CODEC_H_
@@ -305,6 +308,8 @@ private:
         kExtensionsExist,
     } mVendorExtensionsStatus;
 
+    OMX_ENDIANTYPE eEndian;
+
     status_t setCyclicIntraMacroblockRefresh(const sp<AMessage> &msg, int32_t mode);
     status_t allocateBuffersOnPort(OMX_U32 portIndex);
     status_t freeBuffersOnPort(OMX_U32 portIndex);
@@ -460,6 +465,11 @@ private:
             int32_t maxOutputChannelCount, const drcParams_t& drc,
             int32_t pcmLimiterEnable);
 
+    status_t setupAACADIFCodec(
+            bool encoder,
+            int32_t numChannels, int32_t sampleRate, int32_t maxOutputChannelCount,
+            const drcParams_t& drc, int32_t pcmLimiterEnable);
+
     status_t setupAC3Codec(bool encoder, int32_t numChannels, int32_t sampleRate);
 
     status_t setupEAC3Codec(bool encoder, int32_t numChannels, int32_t sampleRate);
@@ -565,6 +575,12 @@ private:
 
     // Force EXEC->IDLE->LOADED shutdown sequence if not stale.
     void forceStateTransition(int generation);
+
+    status_t setupWMVDecoderParameters(const sp<AMessage> &msg);
+    status_t setupWMACodec(bool encoder, const sp<AMessage> &msg);
+    status_t setupAPECodec(bool encoder, const sp<AMessage> &msg);
+    status_t setupRACodec(bool encoder, const sp<AMessage> &msg);
+
 
     DISALLOW_EVIL_CONSTRUCTORS(ACodec);
 };
