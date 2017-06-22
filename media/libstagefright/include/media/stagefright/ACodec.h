@@ -318,6 +318,7 @@ private:
     } mVendorExtensionsStatus;
 
     OMX_ENDIANTYPE eEndian;
+    bool mSetStartTime;
 
     status_t setCyclicIntraMacroblockRefresh(const sp<AMessage> &msg, int32_t mode);
     status_t allocateBuffersOnPort(OMX_U32 portIndex);
@@ -590,7 +591,7 @@ private:
     status_t setupAPECodec(bool encoder, const sp<AMessage> &msg);
     status_t setupRACodec(bool encoder, const sp<AMessage> &msg);
 
-
+    status_t setMediaTime(int64_t time, float speed);
     DISALLOW_EVIL_CONSTRUCTORS(ACodec);
 };
 
