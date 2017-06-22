@@ -144,6 +144,7 @@ static VideoFrame *extractVideoFrame(
         int64_t frameTimeUs,
         int seekMode) {
 
+    int decodeTwice = 0;
     sp<MetaData> format = source->getFormat();
 
     sp<AMessage> videoFormat;
@@ -191,6 +192,7 @@ static VideoFrame *extractVideoFrame(
     }
 
     MediaSource::ReadOptions options;
+    MediaSource::ReadOptions options_first;
     if (seekMode < MediaSource::ReadOptions::SEEK_PREVIOUS_SYNC ||
         seekMode > MediaSource::ReadOptions::SEEK_CLOSEST) {
 
@@ -214,6 +216,7 @@ static VideoFrame *extractVideoFrame(
         options.setSeekTo(frameTimeUs, mode);
     }
 
+    trackMeta->findInt32(kKeySpecialThumbnail, &decodeTwice);
     err = source->start();
     if (err != OK) {
         ALOGW("source failed to start: %d (%s)", err, asString(err));
@@ -245,6 +248,12 @@ static VideoFrame *extractVideoFrame(
     int64_t timeUs;
     size_t retriesLeft = kRetryCount;
     bool done = false;
+    bool firstInput = false;
+    bool firstOutput = false;
+    if(decodeTwice > 0){
+        firstInput = true;
+        firstOutput = true;
+    }
     const char *mime;
     bool success = format->findCString(kKeyMIMEType, &mime);
     if (!success) {
@@ -277,8 +286,14 @@ static VideoFrame *extractVideoFrame(
 
             MediaBuffer *mediaBuffer = NULL;
 
-            err = source->read(&mediaBuffer, &options);
-            options.clearSeekTo();
+            if(firstInput){
+                err = source->read(&mediaBuffer, &options_first);
+                options_first.clearSeekTo();
+                firstInput = false;
+            }else{
+                err = source->read(&mediaBuffer, &options);
+                options.clearSeekTo();
+            }
             if (err != OK) {
                 ALOGW("Input Error or EOS");
                 haveMoreInputs = false;
@@ -301,7 +316,7 @@ static VideoFrame *extractVideoFrame(
                 memcpy(codecBuffer->data(),
                         (const uint8_t*)mediaBuffer->data() + mediaBuffer->range_offset(),
                         mediaBuffer->range_length());
-                if (isAvcOrHevc && IsIDR(codecBuffer) && !isSeekingClosest) {
+                if (isAvcOrHevc && IsIDR(codecBuffer) && !isSeekingClosest && !firstOutput) {
                     // Only need to decode one IDR frame, unless we're seeking with CLOSEST
                     // option, in which case we need to actually decode to targetTimeUs.
                     haveMoreInputs = false;
@@ -350,12 +365,19 @@ static VideoFrame *extractVideoFrame(
                     ALOGV("Timed-out waiting for output.. retries left = %zu", retriesLeft);
                     err = OK;
                 } else if (err == OK) {
-                    // If we're seeking with CLOSEST option and obtained a valid targetTimeUs
-                    // from the extractor, decode to the specified frame. Otherwise we're done.
-                    done = (targetTimeUs < 0ll) || (timeUs >= targetTimeUs);
-                    ALOGV("Received an output buffer, timeUs=%lld", (long long)timeUs);
-                    if (!done) {
+                    ALOGV("Received an output buffer");
+                    if(firstOutput){
+                        ALOGV("Drop First Frame");
+                        decoder->releaseOutputBuffer(index);
+                        firstOutput = false;
+                    }else {
+                        // If we're seeking with CLOSEST option and obtained a valid targetTimeUs
+                        // from the extractor, decode to the specified frame. Otherwise we're done.
+                        done = (targetTimeUs < 0ll) || (timeUs >= targetTimeUs);
+                        ALOGV("Received an output buffer, timeUs=%lld", (long long)timeUs);
+                        if (!done) {
                         err = decoder->releaseOutputBuffer(index);
+                        }
                     }
                 } else {
                     ALOGW("Received error %d (%s) instead of output", err, asString(err));
@@ -389,6 +411,11 @@ static VideoFrame *extractVideoFrame(
     int32_t width, height;
     CHECK(outputFormat->findInt32("width", &width));
     CHECK(outputFormat->findInt32("height", &height));
+    int32_t stride, slice_height;
+    if(outputFormat->findInt32("stride", &stride) && stride > 0)
+        width = stride;
+    if(outputFormat->findInt32("slice-height", &slice_height) && slice_height > 0)
+        height = slice_height;
 
     int32_t crop_left, crop_top, crop_right, crop_bottom;
     if (!outputFormat->findRect("crop", &crop_left, &crop_top, &crop_right, &crop_bottom)) {
@@ -535,7 +562,7 @@ VideoFrame *StagefrightMetadataRetriever::getFrameAtTime(
     MediaCodecList::findMatchingCodecs(
             mime,
             false, /* encoder */
-            MediaCodecList::kPreferSoftwareCodecs,
+            0,//MediaCodecList::kPreferSoftwareCodecs, do not use kPreferSoftwareCodecs
             &matchingCodecs);
 
     for (size_t i = 0; i < matchingCodecs.size(); ++i) {
