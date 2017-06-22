@@ -1,3 +1,6 @@
+
+/* Copyright 2013-2014 Freescale Semiconductor, Inc. */
+
 #ifndef REPEATER_SOURCE_H_
 
 #define REPEATER_SOURCE_H_
@@ -43,6 +46,7 @@ private:
     Condition mCondition;
 
     bool mStarted;
+    bool mStopping;
 
     sp<MediaSource> mSource;
     double mRateHz;
