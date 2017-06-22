@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/* Copyright (C) 2013-2016 Freescale Semiconductor, Inc.*/
+/* Copyright (C) 2013-2016 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "NuPlayer"
 
@@ -2646,11 +2646,16 @@ void NuPlayer::sendTimedTextData(const sp<ABuffer> &buffer) {
     const void *data;
     size_t size = 0;
     int64_t timeUs;
-    int32_t flag = TextDescriptions::IN_BAND_TEXT_3GPP;
+    int32_t flag = 0;
+    bool srt = false;
 
     AString mime;
     CHECK(buffer->meta()->findString("mime", &mime));
-    CHECK(strcasecmp(mime.c_str(), MEDIA_MIMETYPE_TEXT_3GPP) == 0);
+
+    //if mime typs is srt, use srt parsing method
+    if(!strcasecmp(mime.c_str(), MEDIA_MIMETYPE_TEXT_SRT)){
+        srt = true;
+    }
 
     data = buffer->data();
     size = buffer->size();
@@ -2664,6 +2669,12 @@ void NuPlayer::sendTimedTextData(const sp<ABuffer> &buffer) {
         } else {
             flag |= TextDescriptions::LOCAL_DESCRIPTIONS;
         }
+
+        if(srt)
+            flag |= TextDescriptions::OUT_OF_BAND_TEXT_SRT;
+        else
+            flag |= TextDescriptions::IN_BAND_TEXT_3GPP;
+
         TextDescriptions::getParcelOfDescriptions(
                 (const uint8_t *)data, size, flag, timeUs / 1000, &parcel);
     }
