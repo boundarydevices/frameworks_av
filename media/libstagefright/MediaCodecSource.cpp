@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2015 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "MediaCodecSource"
 #define DEBUG_DRIFT_TIME 0
@@ -696,7 +696,7 @@ status_t MediaCodecSource::feedEncoderInputBuffers() {
 
             // push decoding time for video, or drift time for audio
             if (mIsVideo) {
-                mDecodingTimeQueue.push_back(timeUs);
+                //mDecodingTimeQueue.push_back(timeUs);
             } else {
 #if DEBUG_DRIFT_TIME
                 if (mFirstSampleTimeUs < 0ll) {
@@ -920,9 +920,10 @@ void MediaCodecSource::onMessageReceived(const sp<AMessage> &msg) {
                         // this logic into MediaCodec.
                         decodingTimeUs = timeUs;
                     } else {
-                        CHECK(!mDecodingTimeQueue.empty());
-                        decodingTimeUs = *(mDecodingTimeQueue.begin());
-                        mDecodingTimeQueue.erase(mDecodingTimeQueue.begin());
+                        //CHECK(!mDecodingTimeQueue.empty());
+                        //decodingTimeUs = *(mDecodingTimeQueue.begin());
+                        //mDecodingTimeQueue.erase(mDecodingTimeQueue.begin());
+                        decodingTimeUs = timeUs;
                     }
                     mbuf->meta_data()->setInt64(kKeyDecodingTime, decodingTimeUs);
 
