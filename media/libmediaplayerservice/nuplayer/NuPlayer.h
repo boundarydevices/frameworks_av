@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 #ifndef NU_PLAYER_H_
 
 #define NU_PLAYER_H_
@@ -151,6 +151,7 @@ private:
         kWhatSetBufferingSettings       = 'sBuS',
         kWhatPrepareDrm                 = 'pDrm',
         kWhatReleaseDrm                 = 'rDrm',
+        kWhatSetTime                    = 'setT',
     };
 
     wp<NuPlayerDriver> mDriver;
@@ -186,7 +187,7 @@ private:
 
     int32_t mPollDurationGeneration;
     int32_t mTimedTextGeneration;
-
+    int32_t mSetVideoTimeGeneration;
     enum FlushStatus {
         NONE,
         FLUSHING_DECODER,
@@ -323,7 +324,8 @@ private:
 
     status_t onPrepareDrm(const sp<AMessage> &msg);
     status_t onReleaseDrm();
-
+    void scheduleSetVideoDecoderTime();
+    void cancelSetVideoDecoderTime();
     DISALLOW_EVIL_CONSTRUCTORS(NuPlayer);
 };
 
