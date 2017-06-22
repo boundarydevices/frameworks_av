@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 #ifndef VIDEO_FORMATS_H_
 
 #define VIDEO_FORMATS_H_
 
 #include <media/stagefright/foundation/ABase.h>
-
+#include <ui/DisplayInfo.h>
 #include <stdint.h>
 
 namespace android {
@@ -77,6 +77,10 @@ struct VideoFormats {
             ResolutionType type, size_t index, bool enabled = true);
 
     bool isResolutionEnabled(ResolutionType type, size_t index) const;
+
+    void ConvertDpyInfo2Resolution(
+            DisplayInfo Dpy, ResolutionType& type,
+            size_t& index);
 
     void setProfileLevel(
             ResolutionType type, size_t index,

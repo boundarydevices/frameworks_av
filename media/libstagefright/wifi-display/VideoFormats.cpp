@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* Copyright (C) 2016 Freescale Semiconductor, Inc. */
 //#define LOG_NDEBUG 0
 #define LOG_TAG "VideoFormats"
 #include <utils/Log.h>
@@ -151,6 +151,40 @@ void VideoFormats::setNativeResolution(ResolutionType type, size_t index) {
     mNativeIndex = index;
 
     setResolutionEnabled(type, index);
+}
+
+void VideoFormats::ConvertDpyInfo2Resolution(DisplayInfo Dpy, ResolutionType& type, size_t& index) {
+
+    //Resolution which w < h like 768x1024 is not declare in standard.
+    //So swap it and the UIBC and media service will be self-adaption.
+    if (Dpy.w < Dpy.h) {
+        uint32_t tmp = Dpy.w;
+        Dpy.w = Dpy.h;
+        Dpy.h = tmp;
+    }
+
+     for (size_t i = 0; i < kNumResolutionTypes; ++i) {
+        for (size_t j = 0; j < 32; ++j) {
+            if (Dpy.w > 1280) {
+                type = RESOLUTION_CEA;
+                index = 5;
+                return;
+            }
+            //fps should be less 30, or performance will downgrade.
+            if (mResolutionTable[i][j].width == Dpy.w
+                    && mResolutionTable[i][j].height == Dpy.h
+                    && mResolutionTable[i][j].framesPerSecond <= 30) {
+                type = (ResolutionType)i;
+                index = j;
+                return;
+            }
+        }
+     }
+     //if not found any matched config above, prefer 1280x720P30
+     type = RESOLUTION_CEA;
+     index = 5;
+     ALOGI("No matched found prefer type=%d index=%d", type, index);
+     return;
 }
 
 void VideoFormats::getNativeResolution(
@@ -406,7 +440,7 @@ bool VideoFormats::parseFormatSpec(const char *spec) {
         success = GetConfiguration(
                 mNativeType, mNativeIndex, NULL, NULL, NULL, NULL);
     }
-
+    ALOGI("Getconfiguration type=%d, index=%d", mNativeType, mNativeIndex);
     if (!success) {
         ALOGW("sink advertised an illegal native resolution, fortunately "
               "this value is ignored for the time being...");
@@ -506,7 +540,7 @@ bool VideoFormats::PickBestFormat(
                 continue;
             }
 
-            ALOGV("type %zu, index %zu, %zu x %zu %c%zu supported",
+            ALOGD("type %zu, index %zu, %zu x %zu %c%zu supported",
                   i, j, width, height, interlaced ? 'i' : 'p', framesPerSecond);
 
             uint32_t score = width * height * framesPerSecond;
