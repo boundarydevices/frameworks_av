@@ -121,6 +121,10 @@ private:
     struct FlushDecoderAction;
     struct PostMessageAction;
     struct SimpleAction;
+    struct GenericStreamSource;
+    struct SessionManager;
+    struct RTPSessionManager;
+    struct UDPSessionManager;
 
     enum {
         kWhatSetDataSource              = '=DaS',
@@ -247,6 +251,7 @@ private:
         DATA_SOURCE_TYPE_GENERIC_FD,
         DATA_SOURCE_TYPE_MEDIA,
         DATA_SOURCE_TYPE_STREAM,
+        DATA_SOURCE_TYPE_RTPUDP,
     } DATA_SOURCE_TYPE;
 
     std::atomic<DATA_SOURCE_TYPE> mDataSourceType;
