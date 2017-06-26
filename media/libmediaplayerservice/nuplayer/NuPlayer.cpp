@@ -60,6 +60,7 @@
 
 #include "ESDS.h"
 #include <media/stagefright/Utils.h>
+#include "GenericStreamSource.h"
 
 namespace android {
 
@@ -268,6 +269,12 @@ void NuPlayer::setDataSourceAsync(
                 notify, httpService, url, headers, mUIDValid, mUID);
         ALOGV("setDataSourceAsync RTSPSource %s", url);
         mDataSourceType = DATA_SOURCE_TYPE_RTSP;
+        mStreaming = true;
+    }else if(!strncasecmp(url, "rtp://", 6)
+        || !strncasecmp(url, "udp://", 6)){
+        sp<IStreamSource> iss = new GenericStreamSource(url);
+        source = new StreamingSource(notify, iss);
+        mDataSourceType = DATA_SOURCE_TYPE_STREAM;
         mStreaming = true;
     } else if ((!strncasecmp(url, "http://", 7)
                 || !strncasecmp(url, "https://", 8))
