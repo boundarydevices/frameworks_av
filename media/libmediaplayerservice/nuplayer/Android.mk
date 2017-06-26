@@ -19,6 +19,7 @@ LOCAL_SRC_FILES:=                       \
         SessionManager.cpp              \
         RTPSessionManager.cpp           \
         UDPSessionManager.cpp           \
+        StreamingDataSource.cpp         \
 
 
 LOCAL_C_INCLUDES := \
