@@ -65,6 +65,7 @@
 
 #include <android/hidl/allocator/1.0/IAllocator.h>
 #include <android/hidl/memory/1.0/IMemory.h>
+#include <graphics_ext.h>
 
 namespace android {
 

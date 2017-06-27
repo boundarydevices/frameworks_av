@@ -73,6 +73,7 @@ cc_library_shared {
         "frameworks/native/include/media/openmax",
         "frameworks/native/include/media/hardware",
         "device/fsl-codec/ghdr/common",
+        "hardware/imx/include",
     ],
 
     shared_libs: [
