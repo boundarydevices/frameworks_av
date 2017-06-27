@@ -241,6 +241,7 @@ private:
     bool mPausedForBuffering;
     bool mStreaming;
     bool mRendering;
+    bool bNuPlayerStreamingSource;
     // Modular DRM
     sp<ICrypto> mCrypto;
     bool mIsDrmProtected;
