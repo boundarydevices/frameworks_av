@@ -109,6 +109,7 @@ private:
     struct DecoderBase;
     struct DecoderPassThrough;
     struct DecoderPassThroughAC3;
+    struct DecoderPassThroughDDP;
     struct CCDecoder;
     struct GenericSource;
     struct HTTPLiveSource;

@@ -30,6 +30,7 @@
 #include "NuPlayerDecoderBase.h"
 #include "NuPlayerDecoderPassThrough.h"
 #include "NuPlayerDecoderPassThroughAC3.h"
+#include "NuPlayerDecoderPassThroughDDP.h"
 #include "NuPlayerDriver.h"
 #include "NuPlayerRenderer.h"
 #include "NuPlayerSource.h"
@@ -1748,10 +1749,15 @@ void NuPlayer::tryOpenAudioSinkForPassThrough(
     AString mime;
     CHECK(format->findString("mime", &mime));
 
-    format->setInt32("channel-count", 2);
-    format->setInt32("channel-mask", CHANNEL_MASK_USE_CHANNEL_ORDER);
-    format->setInt32("sample-rate", 48000);
-
+    if(0 == strcasecmp(mime.c_str(), MEDIA_MIMETYPE_AUDIO_AC3)){
+        format->setInt32("channel-count", 2);
+        format->setInt32("channel-mask", CHANNEL_MASK_USE_CHANNEL_ORDER);
+        format->setInt32("sample-rate", 48000);
+    }else if( 0 == strcmp(mime.c_str(), MEDIA_MIMETYPE_AUDIO_EAC3)){
+        format->setInt32("channel-count", 2);
+        format->setInt32("channel-mask", CHANNEL_MASK_USE_CHANNEL_ORDER);
+        format->setInt32("sample-rate", 48000*4);
+    }
 
     status_t err = mRenderer->openAudioSink(
             format, false /* offloadOnly */, hasVideo,
@@ -1939,7 +1945,10 @@ status_t NuPlayer::instantiateDecoder(
             //use pass through decoder for test now.
             const bool hasVideo = (mSource->getFormat(false /*audio */) != NULL);
             format->setInt32("has-video", hasVideo);
-            *decoder = new DecoderPassThroughAC3(notify, mSource, mRenderer);
+            if(0 == strcasecmp(mime.c_str(), MEDIA_MIMETYPE_AUDIO_AC3))
+                *decoder = new DecoderPassThroughAC3(notify, mSource, mRenderer);
+            else if( 0 == strcmp(mime.c_str(), MEDIA_MIMETYPE_AUDIO_EAC3))
+                *decoder = new DecoderPassThroughDDP(notify, mSource, mRenderer);
         }else if (mOffloadAudio) {
             mSource->setOffloadAudio(true /* offload */);
 
