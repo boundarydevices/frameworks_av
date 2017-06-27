@@ -282,6 +282,7 @@ void NuPlayer::setDataSourceAsync(
       || !strncasecmp(url, "udp://", 6)){
         sp<IStreamSource> iss = new GenericStreamSource(url);
         source = new StreamingSource(notify, iss);
+        mDataSourceType = DATA_SOURCE_TYPE_RTPUDP;
     }
 #endif
     else if ((!strncasecmp(url, "http://", 7)
