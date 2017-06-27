@@ -21,6 +21,7 @@ LOCAL_SRC_FILES:=                       \
         UDPSessionManager.cpp           \
         StreamingDataSource.cpp         \
         NuPlayerDecoderPassThroughAC3.cpp\
+        NuPlayerDecoderPassThroughDDP.cpp
 
 
 LOCAL_C_INCLUDES := \
