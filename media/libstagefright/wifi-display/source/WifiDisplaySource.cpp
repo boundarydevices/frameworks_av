@@ -1,6 +1,6 @@
 /*
  * Copyright 2012, The Android Open Source Project
- * Copyright (C) 2014-2015 Freescale Semiconductor, Inc.
+ * Copyright (C) 2014-2016 Freescale Semiconductor, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ WifiDisplaySource::WifiDisplaySource(
         return;
     }
     mSupportedSourceVideoFormats.ConvertDpyInfo2Resolution(mainDpyInfo, type, index);
-    ALOGI("Main display is %dx%d @%.2ffps, so pick best resolution type=%d, index=%d\n",
+    ALOGI("Main display is %dx%d @%.2ffps, so pick best resolution type=%d, index=%zu\n",
             mainDpyInfo.w, mainDpyInfo.h, mainDpyInfo.fps,
             type, index);
 
@@ -276,7 +276,7 @@ int WifiDisplaySource::calc_uibc_parameter(size_t width, size_t height)
     uibc_calc_data_Wbs = (mResolution_NativeW - this_w * uibc_calc_data_Ss) / 2;
     uibc_calc_data_Hbs = (mResolution_NativeH - this_h * uibc_calc_data_Ss) / 2;
 
-    ALOGI("sendrolon: uibc_para: ss %f wbs %f hbs %f native: width %u height %u real:%f x %f",uibc_calc_data_Ss, uibc_calc_data_Wbs, uibc_calc_data_Hbs, mResolution_NativeW, mResolution_NativeH, this_w, this_h);
+    ALOGI("sendrolon: uibc_para: ss %f wbs %f hbs %f native: width %zu height %zu real:%f x %f",uibc_calc_data_Ss, uibc_calc_data_Wbs, uibc_calc_data_Hbs, mResolution_NativeW, mResolution_NativeH, this_w, this_h);
 
     return 0;
 }
@@ -790,7 +790,7 @@ void WifiDisplaySource::onMessageReceived(const sp<AMessage> &msg) {
                                     &height,
                                     NULL /* framesPerSecond */,
                                     NULL /* interlaced */));
-                        ALOGI("get configuration width=%d height=%d", width,height);
+                        ALOGI("get configuration width=%zu height=%zu", width,height);
                         mClient->onDisplayConnected(
                                 mClientInfo.mPlaybackSession
                                     ->getSurfaceTexture(),
@@ -1262,7 +1262,7 @@ status_t WifiDisplaySource::onReceiveM3Response(
                     &framesPerSecond,
                     &interlaced));
 
-        ALOGI("Picked video resolution %zu x %zu %c%zu Type: %u Index : %u ",
+        ALOGI("Picked video resolution %zu x %zu %c%zu Type: %u Index : %zu ",
               width, height, interlaced ? 'i' : 'p', framesPerSecond, mChosenVideoResolutionType, mChosenVideoResolutionIndex);
 
         VideoFormats::ResolutionType mResolutionType;
