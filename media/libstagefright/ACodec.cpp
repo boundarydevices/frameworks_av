@@ -62,6 +62,7 @@
 #include "include/SecureBuffer.h"
 #include "include/SharedMemoryBuffer.h"
 #include <media/stagefright/omx/OMXUtils.h>
+#include <graphics_ext.h>
 
 namespace android {
 
