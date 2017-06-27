@@ -259,6 +259,11 @@ void NuPlayer::setDataSourceAsync(
 
     sp<AMessage> notify = new AMessage(kWhatSourceNotify, this);
 
+    if(!strncasecmp(url, "rtp://", 6)
+      || !strncasecmp(url, "udp://", 6)){
+        mStreaming = true;
+    }
+
     sp<Source> source;
     if (IsHTTPLiveURL(url)) {
         source = new HTTPLiveSource(notify, httpService, url, headers);
@@ -270,13 +275,16 @@ void NuPlayer::setDataSourceAsync(
         ALOGV("setDataSourceAsync RTSPSource %s", url);
         mDataSourceType = DATA_SOURCE_TYPE_RTSP;
         mStreaming = true;
-    }else if(!strncasecmp(url, "rtp://", 6)
-        || !strncasecmp(url, "udp://", 6)){
+    }
+//#define RTPUDP_BY_STREAMING_SOURCE
+#ifdef RTPUDP_BY_STREAMING_SOURCE
+    else if(!strncasecmp(url, "rtp://", 6)
+      || !strncasecmp(url, "udp://", 6)){
         sp<IStreamSource> iss = new GenericStreamSource(url);
         source = new StreamingSource(notify, iss);
-        mDataSourceType = DATA_SOURCE_TYPE_STREAM;
-        mStreaming = true;
-    } else if ((!strncasecmp(url, "http://", 7)
+    }
+#endif
+    else if ((!strncasecmp(url, "http://", 7)
                 || !strncasecmp(url, "https://", 8))
                     && ((len >= 4 && !strcasecmp(".sdp", &url[len - 4]))
                     || strstr(url, ".sdp?"))) {

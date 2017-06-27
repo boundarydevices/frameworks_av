@@ -125,6 +125,7 @@ private:
     struct SessionManager;
     struct RTPSessionManager;
     struct UDPSessionManager;
+    struct StreamingDataSource;
 
     enum {
         kWhatSetDataSource              = '=DaS',
