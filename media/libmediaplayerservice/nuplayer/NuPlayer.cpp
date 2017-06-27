@@ -209,6 +209,7 @@ NuPlayer::NuPlayer(pid_t pid)
       mDataSourceType(DATA_SOURCE_TYPE_NONE) {
     clearFlushComplete();
     mRendering = false;
+    bNuPlayerStreamingSource = false;
 }
 
 NuPlayer::~NuPlayer() {
@@ -229,6 +230,7 @@ void NuPlayer::setDataSourceAsync(const sp<IStreamSource> &source) {
     sp<AMessage> notify = new AMessage(kWhatSourceNotify, this);
 
     msg->setObject("source", new StreamingSource(notify, source));
+    bNuPlayerStreamingSource = true;
     msg->post();
     mDataSourceType = DATA_SOURCE_TYPE_STREAM;
 }
@@ -1550,7 +1552,9 @@ void NuPlayer::onStart(int64_t startPositionUs, MediaPlayerSeekMode mode) {
 
     bool hasAudio = (mSource->getFormat(true /* audio */) != NULL);
     bool hasVideo = (mSource->getFormat(false /* audio */) != NULL);
-    if (!hasAudio && !hasVideo) {
+    //do not know if there is cts to test this condition
+    //add an variable so that calling start() will not return error when using StreamingSource
+    if (!hasAudio && !hasVideo && !bNuPlayerStreamingSource) {
         ALOGE("no metadata for either audio or video source");
         mSource->stop();
         mSourceStarted = false;
