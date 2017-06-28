@@ -480,6 +480,8 @@ void NuPlayer::GenericSource::onPrepareAsync() {
     finishPrepareAsync();
 
     ALOGV("onPrepareAsync: Done");
+    if(isRTPUDP)
+        notifyPrepared();
 }
 
 void NuPlayer::GenericSource::finishPrepareAsync() {
