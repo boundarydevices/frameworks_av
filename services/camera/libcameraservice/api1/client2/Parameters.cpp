@@ -49,6 +49,8 @@ Parameters::~Parameters() {
 
 status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
     status_t res;
+    char propBuf[PROPERTY_VALUE_MAX];
+    bool mirror = (cameraFacing == CAMERA_FACING_FRONT);
 
     if (info->entryCount() == 0) {
         ALOGE("%s: No static information provided!", __FUNCTION__);
@@ -154,8 +156,15 @@ status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
     params.set(CameraParameters::KEY_PREVIEW_FORMAT,
             formatEnumToString(previewFormat)); // NV21
 
-    previewTransform = degToTransform(0,
-            cameraFacing == CAMERA_FACING_FRONT);
+    if ((property_get("ro.boot.back_camera_mirror", propBuf, NULL) > 0) &&
+        (cameraFacing == CAMERA_FACING_BACK))
+        mirror = (atoi(propBuf) == 1);
+
+    if ((property_get("ro.boot.front_camera_mirror", propBuf, NULL) > 0) &&
+        (cameraFacing == CAMERA_FACING_FRONT))
+        mirror = (atoi(propBuf) == 1);
+
+    previewTransform = degToTransform(0, mirror);
 
     {
         String8 supportedPreviewFormats;
