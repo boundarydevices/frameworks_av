@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright 2017 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1119,7 +1120,16 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                          err);
                 }
 
-                mRenderer->queueEOS(audio, err);
+                int32_t tunneled = 0;
+
+                if (msg->findInt32("tunneled-playback", &tunneled) && tunneled) {
+                    mVideoEOS = true;
+                    if ((mAudioEOS || mAudioDecoder == NULL)
+                        && (mVideoEOS || mVideoDecoder == NULL)) {
+                        notifyListener(MEDIA_PLAYBACK_COMPLETE, 0, 0);
+                    }
+                } else
+                    mRenderer->queueEOS(audio, err);
             } else if (what == DecoderBase::kWhatFlushCompleted) {
                 ALOGV("decoder %s flush completed", audio ? "audio" : "video");
 
@@ -1652,6 +1662,17 @@ void NuPlayer::onPause() {
 
         driver->notifyMorePlayingTimeUs((played+500)/1000);
     }
+
+    sp<AMessage> params = new AMessage();
+    int64_t ts = -1;
+    status_t err = OK;
+
+    err = mRenderer->getCurrentPosition(&ts);
+    if(OK == err && mVideoDecoder != NULL){
+        params->setInt64("media-time", ts);
+        params->setInt32("pause", mPaused);
+        mVideoDecoder->setParameters(params);
+    }
     cancelSetVideoDecoderTime();
 }
 
@@ -2008,6 +2029,12 @@ status_t NuPlayer::instantiateDecoder(
                     && videoTemporalLayerCount > 0) {
                 params->setInt32("temporal-layer-count", videoTemporalLayerCount);
             }
+        }
+
+        // paused before start, send the state to video decoder
+        if (mPaused) {
+            params->setInt64("media-time", mPreviousSeekTimeUs);
+            params->setInt32("pause", mPaused);
         }
 
         if (params->countEntries() > 0) {
@@ -2467,7 +2494,6 @@ void NuPlayer::notifyDriverSeekComplete() {
         }
     }
 }
-
 void NuPlayer::onSourceNotify(const sp<AMessage> &msg) {
     int32_t what;
     CHECK(msg->findInt32("what", &what));
