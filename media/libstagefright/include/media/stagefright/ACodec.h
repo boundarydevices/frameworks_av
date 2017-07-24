@@ -591,6 +591,7 @@ private:
     status_t setupWMACodec(bool encoder, const sp<AMessage> &msg);
     status_t setupAPECodec(bool encoder, const sp<AMessage> &msg);
     status_t setupRACodec(bool encoder, const sp<AMessage> &msg);
+    status_t setupBSACCodec(bool encoder, const sp<AMessage> &msg);
 
     status_t setMediaTime(int64_t time, float speed);
     DISALLOW_EVIL_CONSTRUCTORS(ACodec);
