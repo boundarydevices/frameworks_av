@@ -193,7 +193,7 @@ status_t NuPlayer::DecoderPassThroughAC3::parseAccessUnit(sp<ABuffer> *accessUni
     }
     if(src->meta()->findInt64("timeUs", &timeUs)){
         tar->meta()->setInt64("timeUs",timeUs);
-        ALOGV("parseAccessUnit ts=%lld",timeUs);
+        ALOGV("parseAccessUnit ts=%" PRId64 "",timeUs);
     }
 
     if(tempBuf == NULL){

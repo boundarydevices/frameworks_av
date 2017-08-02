@@ -64,7 +64,7 @@ uint32_t NuPlayer::GenericStreamSource::flags() const
 }
 void NuPlayer::GenericStreamSource::onBufferAvailable(size_t index)
 {
-    ALOGV("GenericStreamSource::onBufferAvailable index %d" , index);
+    ALOGV("GenericStreamSource::onBufferAvailable index %zu" , index);
     Mutex::Autolock autoLock(mLock);
     mEmptyBufferQueue.push_back(index);
 

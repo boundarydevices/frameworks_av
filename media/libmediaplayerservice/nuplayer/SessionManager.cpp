@@ -253,7 +253,7 @@ void NuPlayer::SessionManager::onNetworkNotify(const sp<AMessage> &msg) {
                 checkFlags(true);
             }
 
-            ALOGV("after enqueue, total size is %d", mTotalDataSize);
+            ALOGV("after enqueue, total size is %zu", mTotalDataSize);
 
             if(mDownStreamComp)
                 tryOutputFilledBuffers();
@@ -308,12 +308,12 @@ void NuPlayer::SessionManager::tryOutputFilledBuffers()
         }
 
         int32_t ret = mDownStreamComp->outputFilledBuffer(src);
-        ALOGV("tryOutputFilledBuffers, ret %d, src size %d", ret, src->size());
+        ALOGV("tryOutputFilledBuffers, ret %d, src size %zu", ret, src->size());
         if(ret >= (int32_t)src->size()){
             mFilledBufferQueue.erase(mFilledBufferQueue.begin());
             CHECK_GE(mTotalDataSize, (int32_t)src->size());
             mTotalDataSize -= src->size();
-            ALOGV("after output, total size is %d", mTotalDataSize);
+            ALOGV("after output, total size is %zu", mTotalDataSize);
         }
         else if(ret <= 0){
             // no more empty buffer space
@@ -324,7 +324,7 @@ void NuPlayer::SessionManager::tryOutputFilledBuffers()
             src->setRange(src->offset() + ret, src->size() - ret);
             CHECK_GE(mTotalDataSize, ret);
             mTotalDataSize -= ret;
-            ALOGV("after output, total size is %d", mTotalDataSize);
+            ALOGV("after output, total size is %zu", mTotalDataSize);
         }
 
         checkFlags(false);
@@ -350,7 +350,7 @@ void NuPlayer::SessionManager::checkFlags(bool BufferIncreasing)
         }
 
         if(mTotalDataSize > HIGH_WATERMARK){
-            ALOGI("--- cache overflow (%d KB), discard all ---", mTotalDataSize/1024);
+            ALOGI("--- cache overflow (%d KB), discard all ---", (int32_t)mTotalDataSize/1024);
             mFilledBufferQueue.clear();
             mTotalDataSize = 0;
         }
@@ -387,7 +387,7 @@ ssize_t NuPlayer::SessionManager::read(void * data, size_t size)
     gettimeofday(&time_start, NULL);
 #endif
 
-    ALOGV("to read size %d", size);
+    ALOGV("to read size %zu", size);
 
     while(offset < size)
     {
@@ -450,7 +450,7 @@ ssize_t NuPlayer::SessionManager::read(void * data, size_t size)
             mLock.unlock();
     }
 
-    ALOGV("read result %d", offset);
+    ALOGV("read result %zu", offset);
 
     return offset;
 }

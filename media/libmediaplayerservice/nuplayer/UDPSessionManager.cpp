@@ -42,7 +42,7 @@ void NuPlayer::UDPSessionManager::enqueueFilledBuffer(const sp<ABuffer> &buffer)
     mFilledBufferQueue.push_back(buffer);
     mTotalDataSize += buffer->size();
 
-    ALOGV("enqueueFilledBuffer queue count %d", mFilledBufferQueue.size());
+    ALOGV("enqueueFilledBuffer queue count %zu", mFilledBufferQueue.size());
 
     return;
 }
