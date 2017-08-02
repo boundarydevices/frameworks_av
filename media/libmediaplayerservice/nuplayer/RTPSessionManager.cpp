@@ -46,7 +46,7 @@ NuPlayer::RTPSessionManager::RTPSessionManager(
 
 status_t NuPlayer::RTPSessionManager::parseHeader(const sp<ABuffer> &buffer)
 {
-    ALOGV("RTPSessionManager::parseHeader size %d", buffer->size());
+    ALOGV("RTPSessionManager::parseHeader size %zu", buffer->size());
 
     size_t size = buffer->size();
     if (size < 12) {
@@ -121,7 +121,7 @@ status_t NuPlayer::RTPSessionManager::parseHeader(const sp<ABuffer> &buffer)
     buffer->setInt32Data(seqNo);
     buffer->setRange(payloadOffset, size - payloadOffset);
 
-    ALOGV("RTPSessionManager::parseHeader result size %d", buffer->size());
+    ALOGV("RTPSessionManager::parseHeader result size %zu", buffer->size());
 
     return OK;
 }
@@ -143,7 +143,7 @@ bool NuPlayer::RTPSessionManager::checkDiscontinuity(const sp<ABuffer> &buffer, 
 
 void NuPlayer::RTPSessionManager::enqueueFilledBuffer(const sp<ABuffer> &buffer)
 {
-    ALOGV("RTPSessionManager::enqueueFilledBuffer, total %d", mTotalDataSize);
+    ALOGV("RTPSessionManager::enqueueFilledBuffer, total %zu", mTotalDataSize);
 
     int32_t newExtendedSeqNo = buffer->int32Data();
 
@@ -181,7 +181,7 @@ void NuPlayer::RTPSessionManager::enqueueFilledBuffer(const sp<ABuffer> &buffer)
         }
     }
 
-    ALOGV("after enqueue, total %d", mTotalDataSize);
+    ALOGV("after enqueue, total %zu", mTotalDataSize);
 
 }
 

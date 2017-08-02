@@ -207,7 +207,7 @@ status_t NuPlayer::DecoderPassThroughDDP::parseAccessUnit(sp<ABuffer> *accessUni
 
     if(src->meta()->findInt64("timeUs", &timeUs)){
         tar->meta()->setInt64("timeUs",timeUs);
-        ALOGV("parseAccessUnit ts=%lld",timeUs);
+        ALOGV("parseAccessUnit ts=%" PRId64 "",timeUs);
     }
 
     if(src_offset < (int32_t)fromSize){
@@ -298,7 +298,7 @@ status_t NuPlayer::DecoderPassThroughDDP::getFrameLen(sp<ABuffer> *accessUnit,in
             mNumBlocks += 1;
 
         *len = (frmsizecod+1)*2;
-        ALOGV("numBlocks = %d fscod = %d len=%d",mNumBlocks,fscod,*len);
+        ALOGV("numBlocks = %zu fscod = %d len=%d",mNumBlocks,fscod,*len);
 
     }
 
