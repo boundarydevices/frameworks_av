@@ -490,7 +490,7 @@ static int32   appSeekFile( FslFileHandle file_handle, int64 offset, int32 whenc
     switch(whence) {
         case SEEK_CUR:
         {
-            if(h->mLength > 0 && h->mOffset + offset > h->mLength){
+            if(h->mLength > 0 && (h->mOffset + offset > h->mLength || h->mOffset + offset < 0)){
                 nContentPipeResult = -1;
             }else
                 h->mOffset += offset;
