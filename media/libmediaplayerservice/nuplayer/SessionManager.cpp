@@ -253,7 +253,7 @@ void NuPlayer::SessionManager::onNetworkNotify(const sp<AMessage> &msg) {
                 checkFlags(true);
             }
 
-            ALOGV("after enqueue, total size is %zu", mTotalDataSize);
+            ALOGV("after enqueue, total size is %d", mTotalDataSize);
 
             if(mDownStreamComp)
                 tryOutputFilledBuffers();
@@ -313,7 +313,7 @@ void NuPlayer::SessionManager::tryOutputFilledBuffers()
             mFilledBufferQueue.erase(mFilledBufferQueue.begin());
             CHECK_GE(mTotalDataSize, (int32_t)src->size());
             mTotalDataSize -= src->size();
-            ALOGV("after output, total size is %zu", mTotalDataSize);
+            ALOGV("after output, total size is %d", mTotalDataSize);
         }
         else if(ret <= 0){
             // no more empty buffer space
@@ -324,7 +324,7 @@ void NuPlayer::SessionManager::tryOutputFilledBuffers()
             src->setRange(src->offset() + ret, src->size() - ret);
             CHECK_GE(mTotalDataSize, ret);
             mTotalDataSize -= ret;
-            ALOGV("after output, total size is %zu", mTotalDataSize);
+            ALOGV("after output, total size is %d", mTotalDataSize);
         }
 
         checkFlags(false);
