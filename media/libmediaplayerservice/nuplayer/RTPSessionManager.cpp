@@ -143,7 +143,7 @@ bool NuPlayer::RTPSessionManager::checkDiscontinuity(const sp<ABuffer> &buffer, 
 
 void NuPlayer::RTPSessionManager::enqueueFilledBuffer(const sp<ABuffer> &buffer)
 {
-    ALOGV("RTPSessionManager::enqueueFilledBuffer, total %zu", mTotalDataSize);
+    ALOGV("RTPSessionManager::enqueueFilledBuffer, total %d", mTotalDataSize);
 
     int32_t newExtendedSeqNo = buffer->int32Data();
 
@@ -181,7 +181,7 @@ void NuPlayer::RTPSessionManager::enqueueFilledBuffer(const sp<ABuffer> &buffer)
         }
     }
 
-    ALOGV("after enqueue, total %zu", mTotalDataSize);
+    ALOGV("after enqueue, total %d", mTotalDataSize);
 
 }
 
