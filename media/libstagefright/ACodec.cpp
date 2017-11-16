@@ -7534,6 +7534,7 @@ ACodec::BaseState::PortMode ACodec::ExecutingState::getPortMode(
 void ACodec::ExecutingState::submitOutputMetaBuffers() {
     // submit as many buffers as there are input buffers with the codec
     // in case we are in port reconfiguring
+    #if 0
     for (size_t i = 0; i < mCodec->mBuffers[kPortIndexInput].size(); ++i) {
         BufferInfo *info = &mCodec->mBuffers[kPortIndexInput].editItemAt(i);
 
@@ -7541,6 +7542,13 @@ void ACodec::ExecutingState::submitOutputMetaBuffers() {
             if (mCodec->submitOutputMetadataBuffer() != OK)
                 break;
         }
+    #endif
+    //remove google's code, when change state to executing, minimal required buffers should be fill to decoder
+    size_t submit_count = mCodec->mMetadataBuffersToSubmit;
+    ALOGV("ExecutingState submitOutputMetaBuffers count=%zu",submit_count);
+    for (size_t i = 0; i < submit_count; ++i) {
+        if (mCodec->submitOutputMetadataBuffer() != OK)
+            break;
     }
 
     // *** NOTE: THE FOLLOWING WORKAROUND WILL BE REMOVED ***
