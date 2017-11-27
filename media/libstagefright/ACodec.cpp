@@ -5838,8 +5838,8 @@ void ACodec::sendFormatChange() {
         CHECK(mOutputFormat->findInt32("channel-count", &channelCount));
         CHECK(mOutputFormat->findInt32("sample-rate", &sampleRate));
         if (mSampleRate != 0 && sampleRate != 0) {
-            mEncoderDelay = mEncoderDelay * sampleRate / mSampleRate;
-            mEncoderPadding = mEncoderPadding * sampleRate / mSampleRate;
+            mEncoderDelay = (int64_t)mEncoderDelay * sampleRate / mSampleRate;
+            mEncoderPadding = (int64_t)mEncoderPadding * sampleRate / mSampleRate;
             mSampleRate = sampleRate;
         }
         if (mSkipCutBuffer != NULL) {
