@@ -72,8 +72,8 @@ cc_library_shared {
     include_dirs: [
         "frameworks/native/include/media/openmax",
         "frameworks/native/include/media/hardware",
-        "device/fsl-codec/ghdr/common",
-        "hardware/imx/include",
+        "vendor/nxp/fsl-codec/ghdr/common",
+        "vendor/nxp-opensource/imx/include",
     ],
 
     shared_libs: [
