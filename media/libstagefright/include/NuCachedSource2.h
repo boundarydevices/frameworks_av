@@ -69,6 +69,7 @@ struct NuCachedSource2 : public DataSource {
             KeyedVector<String8, String8> *headers,
             String8 *cacheConfig,
             bool *disconnectAtHighwatermark);
+    bool isCacheFull(){return mCacheFull;};
 
 protected:
     virtual ~NuCachedSource2();
@@ -116,6 +117,7 @@ private:
     sp<AMessage> mAsyncResult;
     bool mFetching;
     bool mDisconnecting;
+    bool mCacheFull;
     int64_t mLastFetchTimeUs;
 
     int32_t mNumRetriesLeft;

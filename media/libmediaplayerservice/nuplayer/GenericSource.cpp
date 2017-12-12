@@ -1950,6 +1950,8 @@ void NuPlayer::GenericSource::BufferingMonitor::onPollBuffering_l() {
                 }
             } else if (cachedDurationUs > mSettings.mRebufferingWatermarkHighMs * 1000) {
                 stopBufferingIfNecessary_l();
+            } else if (mCachedSource->isCacheFull()) {
+                stopBufferingIfNecessary_l();
             }
         }
     } else if (cachedDataRemaining >= 0
