@@ -1194,6 +1194,10 @@ status_t FslExtractor::CreateParserInterface()
         if(err)
             break;
 
+        err = myQueryInterface(PARSER_API_GET_TEXT_TRACK_MIME, (void **)&IParser->getTextTrackMime);
+        if(err)
+            break;
+
         //track reading function
         err = myQueryInterface(PARSER_API_GET_READ_MODE, (void **)&IParser->getReadMode);
         if(err)
@@ -2048,6 +2052,7 @@ status_t FslExtractor::ParseText(uint32 index, uint32 type,uint32 subtype)
     uint32 width = 0;
     uint32 height = 0;
     const char* mime = NULL;
+    uint32 mime_len = 0;
     ALOGD("ParseText index=%u,type=%u,subtype=%u",index,type,subtype);
     switch(type){
         case TXT_3GP_STREAMING_TEXT:
@@ -2066,8 +2071,6 @@ status_t FslExtractor::ParseText(uint32 index, uint32 type,uint32 subtype)
         default:
             break;
     }
-    if(mime == NULL)
-        return UNKNOWN_ERROR;
 
     err = IParser->getTextTrackWidth(parserHandle,index,&width);
     if(err)
@@ -2075,6 +2078,15 @@ status_t FslExtractor::ParseText(uint32 index, uint32 type,uint32 subtype)
 
     err = IParser->getTextTrackHeight(parserHandle,index,&height);
     if(err)
+        return UNKNOWN_ERROR;
+
+    if(IParser->getTextTrackMime && NULL == mime){
+        err = IParser->getTextTrackMime(parserHandle,index,(uint8**)&mime,&mime_len);
+        if(err)
+             return UNKNOWN_ERROR;
+    }
+
+    if(mime == NULL)
         return UNKNOWN_ERROR;
 
     if(IParser->getLanguage) {
