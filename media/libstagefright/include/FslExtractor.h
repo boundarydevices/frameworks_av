@@ -86,6 +86,7 @@ typedef struct
     /* text/subtitle properties */
     FslParserGetTextTrackWidth          getTextTrackWidth;
     FslParserGetTextTrackHeight         getTextTrackHeight;
+    FslParserGetTextTrackMime           getTextTrackMime;
 
     /* sample reading, seek & trick mode */
     FslParserGetReadMode                getReadMode;
