@@ -177,6 +177,7 @@ status_t FslMediaSource::read(
     int64_t seekTimeUs;
     ReadOptions::SeekMode mode;
     int64_t outTs = 0;
+    int64_t targetSampleTimeUs = -1;
     const char *containerMime = NULL;
     const char *mime = NULL;
 
@@ -197,12 +198,20 @@ status_t FslMediaSource::read(
                 break;
         }
 
+        if (mode == ReadOptions::SEEK_CLOSEST) {
+            targetSampleTimeUs = seekTimeUs;
+        }
+
         clearPendingFrames();
 
         sp<MetaData> meta = mExtractor->getMetaData();
         if(meta != NULL){
             meta->findCString(kKeyMIMEType, &containerMime);
             mFormat->findCString(kKeyMIMEType, &mime);
+
+            if((mode == ReadOptions::SEEK_CLOSEST) && containerMime && !strcasecmp(containerMime,MEDIA_MIMETYPE_CONTAINER_MPEG4)){
+                seekFlag = SEEK_FLAG_CLOSEST;
+            }
 
             if(mFrameSent < 10 && containerMime && !strcasecmp(containerMime, MEDIA_MIMETYPE_CONTAINER_FLV)
                         && mime && !strcasecmp(mime,MEDIA_MIMETYPE_VIDEO_SORENSON))
@@ -230,6 +239,8 @@ status_t FslMediaSource::read(
         }
 
         ret = mExtractor->HandleSeekOperation(mSourceIndex,&seekTimeUs,seekFlag);
+        if(seekFlag == SEEK_FLAG_CLOSEST)
+            targetSampleTimeUs = seekTimeUs;
     }
 
     while (mPendingFrames.empty()) {
@@ -259,6 +270,10 @@ status_t FslMediaSource::read(
 
     if(!mIsAVC && !mIsHEVC){
         return OK;
+    }
+
+    if (targetSampleTimeUs >= 0) {
+        frame->meta_data()->setInt64(kKeyTargetTime, targetSampleTimeUs);
     }
 
     //convert to nal frame
