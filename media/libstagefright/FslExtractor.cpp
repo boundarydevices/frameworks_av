@@ -1703,7 +1703,8 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
         meta->setInt32(kKeySubFormat, wmvType);
     }
 
-    meta->setInt32(kKeyBitRate, bitrate);
+    if (bitrate > 0)
+        meta->setInt32(kKeyBitRate, bitrate);
     meta->setInt32(kKeyWidth, width);
     meta->setInt32(kKeyHeight, height);
     meta->setInt64(kKeyDuration, duration);
