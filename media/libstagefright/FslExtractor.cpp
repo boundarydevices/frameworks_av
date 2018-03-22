@@ -1170,6 +1170,18 @@ status_t FslExtractor::CreateParserInterface()
             err = PARSER_SUCCESS;
         }
 
+        err = myQueryInterface(PARSER_API_GET_VIDEO_DISPLAY_WIDTH, (void **)&IParser->getVideoDisplayWidth);
+        if(err){
+            IParser->getVideoDisplayWidth = NULL;
+            err = PARSER_SUCCESS;
+        }
+
+        err = myQueryInterface(PARSER_API_GET_VIDEO_DISPLAY_HEIGHT, (void **)&IParser->getVideoDisplayHeight);
+        if(err){
+            IParser->getVideoDisplayHeight = NULL;
+            err = PARSER_SUCCESS;
+        }
+
         //audio properties
         err = myQueryInterface(PARSER_API_GET_AUDIO_NUM_CHANNELS, (void **)&IParser->getAudioNumChannels);
         if(err)
@@ -1427,7 +1439,7 @@ status_t FslExtractor::ParseMetaData()
             IParser->getMetaData(parserHandle, kKeyMap[i].key, &userDataFormat, &metaData, \
                 &metaDataSize);
 
-            if((metaData != NULL) && ((int)metaDataSize > 0) && USER_DATA_FORMAT_UTF8 == userDataFormat)
+            if((metaData != NULL) && ((int32_t)metaDataSize > 0) && USER_DATA_FORMAT_UTF8 == userDataFormat)
             {
                 if(metaDataSize > MAX_USER_DATA_STRING_LENGTH)
                     metaDataSize = MAX_USER_DATA_STRING_LENGTH;
@@ -1560,6 +1572,9 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
     uint32 decoderSpecificInfoSize = 0;
     uint32 width = 0;
     uint32 height = 0;
+    uint32 display_width = 0;
+    uint32 display_height = 0;
+
     uint32 rotation = 0;
     uint32 rate = 0;
     uint32 scale = 0;
@@ -1625,6 +1640,20 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
             return UNKNOWN_ERROR;
         }
     }
+
+	if(IParser->getVideoDisplayWidth){
+	    err = IParser->getVideoDisplayWidth(parserHandle, index, &display_width);
+	    if(err){
+	        return UNKNOWN_ERROR;
+	    }
+	}
+
+	if(IParser->getVideoDisplayHeight){
+	    err = IParser->getVideoDisplayHeight(parserHandle, index, &display_height);
+	    if(err){
+	        return UNKNOWN_ERROR;
+	    }
+	}
 
     ALOGI("ParseVideo width=%u,height=%u,fps=%u,rotate=%u",width,height,fps,rotation);
 
@@ -1709,6 +1738,11 @@ status_t FslExtractor::ParseVideo(uint32 index, uint32 type,uint32 subtype)
     meta->setInt32(kKeyHeight, height);
     meta->setInt64(kKeyDuration, duration);
 
+	if(display_width > 0)
+		meta->setInt32(kKeyDisplayWidth, display_width);
+	if(display_height > 0)
+		meta->setInt32(kKeyDisplayHeight, display_height);
+ 
     // stagefright uses framerate only in MPEG4 extractor, let fslextrator be same with it
     if(fps > 0 && !strcmp(mMime, MEDIA_MIMETYPE_CONTAINER_MPEG4))
         meta->setInt32(kKeyFrameRate, fps);
