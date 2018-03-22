@@ -64,6 +64,11 @@
 #include <media/stagefright/omx/OMXUtils.h>
 #include <graphics_ext.h>
 
+#ifdef HANTRO_VPU
+#define HDR_EXTRA_BUFFER_CNT 4
+#define HDR_MIN_BUFFER_CNT_IN_NW 8
+#endif
+
 namespace android {
 
 using binder::Status;
@@ -582,6 +587,7 @@ ACodec::ACodec()
     eEndian = OMX_EndianLittle;
     mSetStartTime = false;
     mEnqueuedBuffers = 0;
+    mIsHDR = false;
 }
 
 ACodec::~ACodec() {
@@ -1185,6 +1191,11 @@ status_t ACodec::configureOutputBuffersFromNativeWindow(
         return err;
     }
 
+#ifdef HANTRO_VPU
+    if(mIsHDR)
+        *minUndequeuedBuffers += HDR_EXTRA_BUFFER_CNT;
+#endif
+
     // FIXME: assume that surface is controlled by app (native window
     // returns the number for the case when surface is not controlled by app)
     // FIXME2: This means that minUndeqeueudBufs can be 1 larger than reported
@@ -1294,6 +1305,10 @@ status_t ACodec::allocateOutputBuffersFromNativeWindow() {
 
     OMX_U32 cancelStart;
     OMX_U32 cancelEnd;
+
+#ifdef HANTRO_VPU
+    mEnqueuedBuffers = 0;
+#endif
 
     if (err != OK) {
         // If an error occurred while dequeuing we need to cancel any buffers
@@ -1444,6 +1459,10 @@ status_t ACodec::cancelBufferToNativeWindow(BufferInfo *info) {
     // change ownership even if cancelBuffer fails
     info->mStatus = BufferInfo::OWNED_BY_NATIVE_WINDOW;
 
+#ifdef HANTRO_VPU
+    if(err == 0)
+        mEnqueuedBuffers++;
+#endif
     return err;
 }
 
@@ -4125,6 +4144,12 @@ status_t ACodec::getHDRStaticInfoForVideoCodec(OMX_U32 portIndex, sp<AMessage> &
 
     status_t err = getHDRStaticInfo(params);
     if (err == OK) {
+        mIsHDR = params.sInfo.sType1.mR.x || params.sInfo.sType1.mR.y ||
+            params.sInfo.sType1.mG.x || params.sInfo.sType1.mG.y ||
+            params.sInfo.sType1.mB.x || params.sInfo.sType1.mB.y ||
+            params.sInfo.sType1.mW.x || params.sInfo.sType1.mW.y ||
+            params.sInfo.sType1.mMaxDisplayLuminance || params.sInfo.sType1.mMinDisplayLuminance ||
+            params.sInfo.sType1.mMaxContentLightLevel || params.sInfo.sType1.mMaxFrameAverageLightLevel;
         // we only set decodec output HDRStaticInfo if codec supports them
         setHDRStaticInfoIntoFormat(params.sInfo, format);
     }
@@ -6760,6 +6785,12 @@ void ACodec::BaseState::onOutputBufferDrained(const sp<AMessage> &msg) {
                     #ifdef CHIPSMEDIA_VPU
                     //dequeue buffer until surface has 2 buffers
                     if(mCodec->mEnqueuedBuffers > 0 && mCodec->mEnqueuedBuffers < 3){
+                        ALOGE("[%s]do not dequeue buffer,queued cnt=%d",mCodec->mComponentName.c_str(),mCodec->mEnqueuedBuffers);
+                        break;
+                    }
+                    #endif
+                    #ifdef HANTRO_VPU
+                    if(mCodec->mIsHDR && mCodec->mEnqueuedBuffers > 0 && mCodec->mEnqueuedBuffers <= HDR_MIN_BUFFER_CNT_IN_NW){
                         ALOGE("[%s]do not dequeue buffer,queued cnt=%d",mCodec->mComponentName.c_str(),mCodec->mEnqueuedBuffers);
                         break;
                     }
