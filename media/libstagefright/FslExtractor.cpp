@@ -37,6 +37,7 @@
 namespace android {
 #define MAX_USER_DATA_STRING_LENGTH 1024
 #define MAX_FRAME_BUFFER_LENGTH 10000000
+#define MAX_FRAME_BUFFER_LENGTH_4K 50000000
 #define MAX_VIDEO_BUFFER_SIZE (512*1024)
 #define MAX_AUDIO_BUFFER_SIZE (16*1024)
 #define MAX_TEXT_BUFFER_SIZE (1024)
@@ -411,7 +412,18 @@ bool FslMediaSource::started()
 }
 bool FslMediaSource::full()
 {
-    if(mBufferSize > MAX_FRAME_BUFFER_LENGTH)
+    size_t maxBufferSize;
+    int width = 0;
+    int height = 0;
+
+    if(mFormat->findInt32(kKeyWidth, &width) && mFormat->findInt32(kKeyHeight, &height)
+        && width >= 3840 && height >= 2160){
+        maxBufferSize = MAX_FRAME_BUFFER_LENGTH_4K;
+    }
+    else
+        maxBufferSize = MAX_FRAME_BUFFER_LENGTH;
+
+    if(mBufferSize > maxBufferSize)
         return true;
     else
         return false;
