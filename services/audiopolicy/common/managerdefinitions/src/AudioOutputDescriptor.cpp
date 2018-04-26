@@ -218,6 +218,78 @@ void AudioOutputDescriptor::log(const char* indent)
           indent, mId, mId, mSamplingRate, mFormat, mChannelMask);
 }
 
+bool AudioOutputDescriptor::updateGain(audio_stream_type_t stream __unused,
+        audio_devices_t device __unused, float mediaVolume __unused)
+{
+    return false;
+}
+
+bool SwAudioOutputDescriptor::updateGain(audio_stream_type_t stream __unused,
+        audio_devices_t device, float mediaVolume)
+{
+    if (mProfile == 0) {
+        ALOGE("Error: this SwAudioOutputDescriptor doesn't have valid mProfile!");
+        return false;
+    }
+
+    DeviceVector supportedDevices = mProfile->getSupportedDevices().getDevicesFromType(device);
+    sp<DeviceDescriptor> deviceDesc = NULL;
+    sp<AudioPort> audioPort = NULL;
+    for (size_t i = 0; i < supportedDevices.size(); i ++) {
+        deviceDesc = supportedDevices.itemAt(i);
+        if (deviceDesc->type() == device) {
+            audioPort = deviceDesc->getAudioPort();
+            break;
+        }
+        deviceDesc = NULL;
+    }
+
+    if (deviceDesc == NULL || audioPort == NULL) {
+        ALOGE("Error: failed to get device descriptor or audio port!");
+        return false;
+    }
+
+    AudioGainCollection gainCol = audioPort->getGains();
+    if (gainCol.empty()) {
+        ALOGE("Error: audio gain collection is empty for current port");
+        return false;
+    }
+
+    int gainMinValueInMb = gainCol[0]->getMinValueInMb();
+    int gainMaxValueInMb = gainCol[0]->getMaxValueInMb();
+    int gainStepValueInMb = gainCol[0]->getStepValueInMb();
+    int steps = (gainMaxValueInMb - gainMinValueInMb) / gainStepValueInMb;
+    int gainValue = gainMinValueInMb;
+    if (mediaVolume < 1.0f) {
+        gainValue += gainStepValueInMb * (int) (mediaVolume * steps + 0.5);
+    } else {
+        gainValue = gainMaxValueInMb;
+    }
+
+    struct audio_port_config newConfig;
+    struct audio_port_config backupConfig;
+    deviceDesc->toAudioPortConfig(&newConfig);
+    newConfig.config_mask = AUDIO_PORT_CONFIG_GAIN;
+    newConfig.type = AUDIO_PORT_TYPE_DEVICE;
+    newConfig.gain.values[0] = gainValue;
+    newConfig.gain.index = 0;
+    newConfig.gain.mode = AUDIO_GAIN_MODE_JOINT;
+    newConfig.ext.device.type = device;
+    status_t status = deviceDesc->applyAudioPortConfig(&newConfig, &backupConfig);
+
+    if (status != NO_ERROR) {
+        ALOGE("Error to apply new config, status = %d", status);
+        return false;
+    }
+    status = mClientInterface->setAudioPortConfig(&newConfig, 0);
+    if (status != NO_ERROR) {
+        deviceDesc->applyAudioPortConfig(&backupConfig);
+        ALOGE("Error to setAudioPortConfig, status = %d", status);
+        return false;
+    }
+    return true;
+}
+
 // SwAudioOutputDescriptor implementation
 SwAudioOutputDescriptor::SwAudioOutputDescriptor(const sp<IOProfile>& profile,
                                                  AudioPolicyClientInterface *clientInterface)

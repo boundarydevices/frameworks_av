@@ -3956,6 +3956,8 @@ void AudioPolicyManager::loadConfig() {
 status_t AudioPolicyManager::initialize() {
     mVolumeCurves->initializeVolumeCurves(getConfig().isSpeakerDrcEnabled());
 
+    mIsPlatformTelevision = property_get_bool("ro.platform.is.tv", false /* default_value */);
+
     // Once policy config has been parsed, retrieve an instance of the engine and initialize it.
     audio_policy::EngineInstance *engineInstance = audio_policy::EngineInstance::getInstance();
     if (!engineInstance) {
@@ -5644,6 +5646,22 @@ status_t AudioPolicyManager::checkAndSetVolume(audio_stream_type_t stream,
             ((stream == AUDIO_STREAM_VOICE_CALL || stream == AUDIO_STREAM_BLUETOOTH_SCO) &&
              (device & AUDIO_DEVICE_OUT_ALL_SCO) != 0)) {
         volumeDb = 0.0f;
+    }
+
+    if (mIsPlatformTelevision) {
+        if (device == AUDIO_DEVICE_OUT_HDMI_ARC ||
+            device == AUDIO_DEVICE_OUT_WIRED_HEADPHONE ||
+            (device & AUDIO_DEVICE_OUT_SPEAKER)) {
+            volumeDb = 0.0f;
+        }
+        if (device == AUDIO_DEVICE_OUT_SPEAKER && outputDesc->isStreamActive(stream)) {
+            //ignoring the "index" passed as argument and always use MUSIC stream index
+            //for all stream types works on TV because all stream types are aliases of MUSIC.
+            int volumeIndex = mVolumeCurves->getVolumeIndex(AUDIO_STREAM_MUSIC, device);
+            int volumeMaxIndex = mVolumeCurves->getVolumeIndexMax(AUDIO_STREAM_MUSIC);
+            float mediaVolume = (float) volumeIndex / (float) volumeMaxIndex;
+            outputDesc->updateGain(stream, device, mediaVolume);
+        }
     }
 
     outputDesc->setVolume(volumeDb, stream, device, delayMs, force);

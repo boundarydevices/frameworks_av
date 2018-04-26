@@ -86,6 +86,8 @@ public:
                                         // device selection. See checkDeviceMuteStrategies()
     AudioPolicyClientInterface *mClientInterface;
 
+    virtual bool updateGain(audio_stream_type_t stream, audio_devices_t device, float mediaVolume);
+
 protected:
     audio_patch_handle_t mPatchHandle;
     audio_port_handle_t mId;
@@ -136,6 +138,8 @@ public:
             status_t openDuplicating(const sp<SwAudioOutputDescriptor>& output1,
                                      const sp<SwAudioOutputDescriptor>& output2,
                                      audio_io_handle_t *ioHandle);
+
+    bool updateGain(audio_stream_type_t stream, audio_devices_t device, float mediaVolume);
 
     const sp<IOProfile> mProfile;          // I/O profile this output derives from
     audio_io_handle_t mIoHandle;           // output handle
