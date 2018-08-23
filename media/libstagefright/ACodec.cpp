@@ -59,6 +59,7 @@
 #include "include/SecureBuffer.h"
 #include "include/SharedMemoryBuffer.h"
 #include <media/stagefright/omx/OMXUtils.h>
+#include <stagefright/AVExtensions.h>
 
 namespace android {
 
@@ -1688,7 +1689,7 @@ status_t ACodec::fillBuffer(BufferInfo *info) {
 
 status_t ACodec::setComponentRole(
         bool isEncoder, const char *mime) {
-    const char *role = GetComponentRole(isEncoder, mime);
+    const char *role = AVUtils::get()->getComponentRole(isEncoder, mime);
     if (role == NULL) {
         return BAD_VALUE;
     }
@@ -2020,7 +2021,8 @@ status_t ACodec::configureCodec(
     if (mIsVideo || mIsImage) {
         // determine need for software renderer
         bool usingSwRenderer = false;
-        if (haveNativeWindow && mComponentName.startsWith("OMX.google.")) {
+        if (haveNativeWindow && (mComponentName.startsWith("OMX.google.") ||
+                                AVUtils::get()->isVendorSoftDecoder(mComponentName.c_str()))) {
             usingSwRenderer = true;
             haveNativeWindow = false;
             (void)setPortMode(kPortIndexOutput, IOMX::kPortModePresetByteBuffer);
@@ -2235,6 +2237,9 @@ status_t ACodec::configureCodec(
             err = setupEAC3Codec(encoder, numChannels, sampleRate);
         }
     }
+    /*add by amlogic for audio extend format support*/
+    else if ( AVUtils::get()->isAudioExtendFormat(mime))
+        err = AVUtils::get()->setAudioExtendParameter(mime ,mOMXNode, msg);
 
     if (err != OK) {
         return err;
@@ -3312,9 +3317,12 @@ status_t ACodec::setupVideoDecoder(
     status_t err = GetVideoCodingTypeFromMime(mime, &compressionFormat);
 
     if (err != OK) {
-        return err;
+        err = AVUtils::get()->getVideoCodingTypeFromMimeEx(mime, &compressionFormat);
     }
 
+    if (err != OK) {
+        return err;
+    }
     if (compressionFormat == OMX_VIDEO_CodingHEVC) {
         int32_t profile;
         if (msg->findInt32("profile", &profile)) {
@@ -5306,6 +5314,13 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
                 }
 
                 default:
+                    /*add by amlogic for audio extend format support*/
+                    if ( AVUtils::get()->isAudioExtendCoding((int)audioDef->eEncoding)) {
+                        err =  AVUtils::get()->getAudioExtendParameter((int)audioDef->eEncoding, portIndex ,mOMXNode, notify);
+                        if (err != OK)
+                            return err;
+                        break;
+                    }
                     ALOGE("Unsupported audio coding: %s(%d)\n",
                             asString(audioDef->eEncoding), audioDef->eEncoding);
                     return BAD_TYPE;
@@ -8294,7 +8309,7 @@ void ACodec::FlushingState::changeStateIfWeOwnAllBuffers() {
 status_t ACodec::queryCapabilities(
         const char* owner, const char* name, const char* mime, bool isEncoder,
         MediaCodecInfo::CapabilitiesWriter* caps) {
-    const char *role = GetComponentRole(isEncoder, mime);
+    const char *role = AVUtils::get()->getComponentRole(isEncoder, mime);
     if (role == NULL) {
         return BAD_VALUE;
     }

@@ -98,6 +98,9 @@ static sp<MediaMetadataRetrieverBase> createRetriever(player_type playerType)
     }
     if (p == NULL) {
         ALOGE("failed to create a retriever object");
+        if (playerType == 112) {
+           p = new StagefrightMetadataRetriever;
+        }
     }
     return p;
 }

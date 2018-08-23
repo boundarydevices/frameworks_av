@@ -45,6 +45,10 @@
 #include <media/AudioParameter.h>
 #include <system/audio.h>
 
+#ifndef STAGEFRIGHT_PLAYER2
+#include <stagefright/AVExtensions.h>
+#endif
+
 namespace android {
 
 static status_t copyNALUToABuffer(sp<ABuffer> *buffer, const uint8_t *ptr, size_t length) {
@@ -1094,6 +1098,9 @@ status_t convertMetaDataToMessage(
         memcpy(buffer->data(), data, size);
     }
 
+#ifndef STAGEFRIGHT_PLAYER2
+    AVUtils::get()->convertMetaDataToMessage(meta, msg);
+#endif
     *format = msg;
 
     return OK;

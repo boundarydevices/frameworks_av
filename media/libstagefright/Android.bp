@@ -189,6 +189,10 @@ cc_library_shared {
         "libFLAC",
     ],
 
+    whole_static_libs: [
+        "libavextensions"
+    ],
+
     export_shared_lib_headers: [
         "libmedia",
         "android.hidl.allocator@1.0",
@@ -289,6 +293,7 @@ cc_library {
         "-Werror",
         "-Wno-error=deprecated-declarations",
         "-Wall",
+        "-DSTAGEFRIGHT_PLAYER2"
     ],
 
     product_variables: {
