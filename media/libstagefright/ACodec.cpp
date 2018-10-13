@@ -2238,7 +2238,7 @@ status_t ACodec::configureCodec(
         }
     }
     /*add by amlogic for audio extend format support*/
-    else if ( AVUtils::get()->isAudioExtendFormat(mime))
+    if ( AVUtils::get()->isAudioExtendFormat(mime))
         err = AVUtils::get()->setAudioExtendParameter(mime ,mOMXNode, msg);
 
     if (err != OK) {
