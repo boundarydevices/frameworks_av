@@ -5751,6 +5751,21 @@ bool ACodec::BaseState::onOMXEmptyBufferDone(IOMX::buffer_id bufferID, int fence
     }
     info->mStatus = BufferInfo::OWNED_BY_US;
 
+    const sp<AMessage> &bufferMeta = info->mData->meta();
+    void *mediaBuffer;
+    if (bufferMeta->findPointer("mediaBuffer", &mediaBuffer)
+            && mediaBuffer != NULL) {
+        // We're in "store-metadata-in-buffers" mode, the underlying
+        // OMX component had access to data that's implicitly refcounted
+        // by this "mediaBuffer" object. Now that the OMX component has
+        // told us that it's done with the input buffer, we can decrement
+        // the mediaBuffer's reference count.
+        ALOGV("releasing mbuf %p", mediaBuffer);
+        ((MediaBuffer *)mediaBuffer)->release();
+        mediaBuffer = NULL;
+        bufferMeta->setPointer("mediaBuffer", NULL);
+    }
+
     // input buffers cannot take fences, so wait for any fence now
     (void)mCodec->waitForFence(fenceFd, "onOMXEmptyBufferDone");
     fenceFd = -1;
