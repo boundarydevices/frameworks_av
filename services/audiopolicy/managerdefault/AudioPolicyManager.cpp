@@ -38,6 +38,7 @@
 #include <utils/Log.h>
 #include <media/AudioParameter.h>
 #include <media/AudioPolicyHelper.h>
+#include <media/AudioSystem.h>
 #include <soundtrigger/SoundTrigger.h>
 #include <system/audio.h>
 #include <audio_policy_conf.h>
@@ -149,6 +150,10 @@ status_t AudioPolicyManager::setDeviceConnectionStateInt(audio_devices_t device,
                     return INVALID_OPERATION;
                 }
                 mAvailableOutputDevices[index]->attach(module);
+                if (device == AUDIO_DEVICE_OUT_USB_HEADSET) {
+                    String8 speakerMute("speaker_mute=1");
+                    AudioSystem::setParameters(speakerMute);
+                }
             } else {
                 return NO_MEMORY;
             }
@@ -188,6 +193,11 @@ status_t AudioPolicyManager::setDeviceConnectionStateInt(audio_devices_t device,
 
             // remove device from available output devices
             mAvailableOutputDevices.remove(devDesc);
+            if (device == AUDIO_DEVICE_OUT_USB_HEADSET &&
+                    (!(getDevicesForStream(AUDIO_STREAM_MUSIC) & AUDIO_DEVICE_OUT_HDMI_ARC))) {
+                String8 speakerUnmute("speaker_mute=0");
+                AudioSystem::setParameters(speakerUnmute);
+            }
 
             checkOutputsForDevice(devDesc, state, outputs, devDesc->mAddress);
 
@@ -3956,7 +3966,7 @@ void AudioPolicyManager::loadConfig() {
 status_t AudioPolicyManager::initialize() {
     mVolumeCurves->initializeVolumeCurves(getConfig().isSpeakerDrcEnabled());
 
-    mIsPlatformTelevision = property_get_bool("ro.platform.is.tv", false /* default_value */);
+    mIsPlatformTelevision = property_get_bool("ro.vendor.platform.is.tv", false /* default_value */);
 
     // Once policy config has been parsed, retrieve an instance of the engine and initialize it.
     audio_policy::EngineInstance *engineInstance = audio_policy::EngineInstance::getInstance();
@@ -5649,18 +5659,30 @@ status_t AudioPolicyManager::checkAndSetVolume(audio_stream_type_t stream,
     }
 
     if (mIsPlatformTelevision) {
-        if (device == AUDIO_DEVICE_OUT_HDMI_ARC ||
-            device == AUDIO_DEVICE_OUT_WIRED_HEADPHONE ||
-            (device & AUDIO_DEVICE_OUT_SPEAKER)) {
+        audio_devices_t curDevice = Volume::getDeviceForVolume(getDevicesForStream(AUDIO_STREAM_MUSIC));
+        if (curDevice == AUDIO_DEVICE_OUT_HDMI_ARC ||
+            curDevice == AUDIO_DEVICE_OUT_WIRED_HEADPHONE ||
+            (curDevice & AUDIO_DEVICE_OUT_SPEAKER)) {
             volumeDb = 0.0f;
         }
-        if (device == AUDIO_DEVICE_OUT_SPEAKER && outputDesc->isStreamActive(stream)) {
+        if (curDevice == AUDIO_DEVICE_OUT_SPEAKER && outputDesc->isStreamActive(stream)) {
             //ignoring the "index" passed as argument and always use MUSIC stream index
             //for all stream types works on TV because all stream types are aliases of MUSIC.
-            int volumeIndex = mVolumeCurves->getVolumeIndex(AUDIO_STREAM_MUSIC, device);
+            int volumeIndex = mVolumeCurves->getVolumeIndex(AUDIO_STREAM_MUSIC, curDevice);
             int volumeMaxIndex = mVolumeCurves->getVolumeIndexMax(AUDIO_STREAM_MUSIC);
             float mediaVolume = (float) volumeIndex / (float) volumeMaxIndex;
-            outputDesc->updateGain(stream, device, mediaVolume);
+
+            if (volumeMaxIndex == 1) {
+                char defaultMediaVolume[PROPERTY_VALUE_MAX];
+                char volumeStep[PROPERTY_VALUE_MAX];
+                if (property_get("ro.config.media_vol_default", defaultMediaVolume, NULL)
+                        && property_get("ro.config.media_vol_steps", volumeStep, NULL)) {
+                   mediaVolume = ((float)atoi(defaultMediaVolume)) / ((float)atoi(volumeStep));
+                } else {
+                   mediaVolume = 0.25f;
+                }
+            }
+            outputDesc->updateGain(stream, curDevice, mediaVolume);
         }
     }
 
