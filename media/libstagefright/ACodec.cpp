@@ -6531,6 +6531,7 @@ bool ACodec::UninitializedState::onAllocateComponent(const sp<AMessage> &msg) {
     mCodec->mOMXNode = omxNode;
     mCodec->mCallback->onComponentAllocated(mCodec->mComponentName.c_str());
     mCodec->changeState(mCodec->mLoadedState);
+    mCodec->mFatalError = false;
 
     return true;
 }
