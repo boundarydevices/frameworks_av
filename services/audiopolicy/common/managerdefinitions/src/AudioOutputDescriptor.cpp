@@ -218,14 +218,18 @@ void AudioOutputDescriptor::log(const char* indent)
           indent, mId, mId, mSamplingRate, mFormat, mChannelMask);
 }
 
-bool AudioOutputDescriptor::updateGain(audio_stream_type_t stream __unused,
-        audio_devices_t device __unused, float mediaVolume __unused)
+bool AudioOutputDescriptor::updateGain(audio_devices_t device __unused,
+                                       float volumeDb __unused,
+                                       float minVolumeDb __unused,
+                                       float maxVolumeDb __unused)
 {
     return false;
 }
 
-bool SwAudioOutputDescriptor::updateGain(audio_stream_type_t stream __unused,
-        audio_devices_t device, float mediaVolume)
+bool SwAudioOutputDescriptor::updateGain(audio_devices_t device,
+                                         float volumeDb,
+                                         float minVolumeDb,
+                                         float maxVolumeDb)
 {
     if (mProfile == 0) {
         ALOGE("Error: this SwAudioOutputDescriptor doesn't have valid mProfile!");
@@ -258,13 +262,12 @@ bool SwAudioOutputDescriptor::updateGain(audio_stream_type_t stream __unused,
     int gainMinValueInMb = gainCol[0]->getMinValueInMb();
     int gainMaxValueInMb = gainCol[0]->getMaxValueInMb();
     int gainStepValueInMb = gainCol[0]->getStepValueInMb();
-    int steps = (gainMaxValueInMb - gainMinValueInMb) / gainStepValueInMb;
-    int gainValue = gainMinValueInMb;
-    if (mediaVolume < 1.0f) {
-        gainValue += gainStepValueInMb * (int) (mediaVolume * steps + 0.5);
-    } else {
-        gainValue = gainMaxValueInMb;
-    }
+
+    int gainValue = ((int)((volumeDb - minVolumeDb) * (gainMaxValueInMb - gainMinValueInMb)))
+        / (int)(maxVolumeDb - minVolumeDb) + gainMinValueInMb;
+    gainValue = (int)(((float)gainValue / gainStepValueInMb) * gainStepValueInMb);
+
+    std::max(gainMinValueInMb, std::min(gainValue, gainMaxValueInMb));
 
     struct audio_port_config newConfig;
     struct audio_port_config backupConfig;

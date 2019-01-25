@@ -86,7 +86,8 @@ public:
                                         // device selection. See checkDeviceMuteStrategies()
     AudioPolicyClientInterface *mClientInterface;
 
-    virtual bool updateGain(audio_stream_type_t stream, audio_devices_t device, float mediaVolume);
+    virtual bool updateGain(
+        audio_devices_t device, float volumeDb, float minVolumeDb, float maxVolumeDb);
 
 protected:
     audio_patch_handle_t mPatchHandle;
@@ -139,7 +140,8 @@ public:
                                      const sp<SwAudioOutputDescriptor>& output2,
                                      audio_io_handle_t *ioHandle);
 
-    bool updateGain(audio_stream_type_t stream, audio_devices_t device, float mediaVolume);
+    virtual bool updateGain(
+          audio_devices_t device, float volumeDb, float minVolumeDb, float maxVolumeDb);
 
     const sp<IOProfile> mProfile;          // I/O profile this output derives from
     audio_io_handle_t mIoHandle;           // output handle
