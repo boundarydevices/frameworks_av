@@ -581,6 +581,11 @@ status_t MPEG4Extractor::readMetaData() {
         off64_t orig_offset = offset;
         err = parseChunk(&offset, 0);
 
+        if (err == ERROR_IO && !mHasMoovBox && mMdatFound) {
+            mInitCheck = OK;
+            ALOGI("moov not found, but return init ok\n");
+            break;
+        }
         if (err != OK && err != UNKNOWN_ERROR) {
             break;
         } else if (offset <= orig_offset) {
