@@ -5662,8 +5662,9 @@ status_t AudioPolicyManager::checkAndSetVolume(audio_stream_type_t stream,
         audio_devices_t curDevice = Volume::getDeviceForVolume(getDevicesForStream(AUDIO_STREAM_MUSIC));
         bool speakerGainApplied = false;
         bool bootVideoRunning = property_get_int32("service.bootvideo.exit", 0) == 1;
-        if (curDevice == AUDIO_DEVICE_OUT_SPEAKER &&
-                (outputDesc->isStreamActive(stream) || bootVideoRunning)) {
+        if (((curDevice == AUDIO_DEVICE_OUT_HDMI && property_get_bool("ro.vendor.platform.is.stb", false))
+                || curDevice == AUDIO_DEVICE_OUT_SPEAKER) &&
+                        (outputDesc->isStreamActive(stream) || bootVideoRunning)) {
             //ignoring the "index" passed as argument and always use MUSIC stream index
             //for all stream types works on TV because all stream types are aliases of MUSIC.
             int volumeIndex = mVolumeCurves->getVolumeIndex(AUDIO_STREAM_MUSIC, curDevice);
